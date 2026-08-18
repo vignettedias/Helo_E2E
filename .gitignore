@@ -1,0 +1,13 @@
+__pycache__/
+.pytest_cache/
+.hypothesis/
+*.pyc
+node_modules/
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins*
+.env

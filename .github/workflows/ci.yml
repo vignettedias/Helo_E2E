@@ -1,0 +1,246 @@
+name: Helo CI
+
+# Failure policy: this pipeline treats a cryptographic regression exactly like
+# a build break. A protocol change that alters derived keys, a committed
+# secret, or a failing adversarial test all fail the build outright -- there is
+# no "warning" tier for security checks, because a warning is something people
+# learn to ignore.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly run catches newly disclosed vulnerabilities in a repo that has not
+    # otherwise changed.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  crypto:
+    name: Protocol & cryptographic tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install cryptography pytest hypothesis ruff
+
+      - name: Lint
+        run: ruff check crypto/ tests/ scripts/
+
+      - name: Unit tests
+        run: python -m pytest tests/unit -q
+
+      - name: Adversarial tests
+        run: python -m pytest tests/adversarial -q
+
+      - name: Property-based tests
+        run: python -m pytest tests/property -q
+
+      - name: Integration & vector conformance
+        run: python -m pytest tests/integration -q
+
+      - name: Cryptographic test vectors must reproduce byte-exactly
+        # A diff here means the protocol's derived keys changed. That may be
+        # intentional, but it must never happen silently: every existing
+        # session and every ported implementation would break.
+        run: python scripts/generate_test_vectors.py --check
+
+      - name: Benchmarks execute
+        run: python scripts/benchmark.py
+
+  relay:
+    name: Relay backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Assert zero runtime dependencies
+        # An empty dependency tree is the relay's primary supply-chain control.
+        # If a dependency is ever added, this fails and forces a deliberate
+        # review rather than a silent expansion of the attack surface.
+        working-directory: backend
+        run: |
+          COUNT=$(node -e "const p=require('./package.json');console.log(Object.keys(p.dependencies||{}).length)")
+          if [ "$COUNT" != "0" ]; then
+            echo "::error::Relay gained $COUNT runtime dependencies. Supply-chain review required."
+            exit 1
+          fi
+
+      - name: Relay test suite
+        working-directory: backend
+        run: node --test test/
+
+  cross_stack:
+    name: End-to-end across the real stack
+    runs-on: ubuntu-latest
+    needs: [crypto, relay]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install cryptography
+
+      - name: Real client through real relay, with database inspection
+        # Starts the actual relay process, drives it with the reference client,
+        # then opens the relay's database and asserts no plaintext or key
+        # material is recoverable from the raw file bytes.
+        run: python scripts/integration_e2e.py
+
+  secrets:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Reject private key material outside the test-vector allowlist
+        # tests/vectors/ intentionally contains private keys derived from a
+        # fixed public seed. They are safe by construction. Anywhere ELSE, a
+        # private key is a real leak.
+        run: |
+          set -e
+          MATCHES=$(grep -rIl -E "BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY" . \
+            --exclude-dir=.git || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Private key material committed:"
+            echo "$MATCHES"
+            exit 1
+          fi
+
+      - name: Reject hardcoded credentials in source
+        run: |
+          set -e
+          HITS=$(grep -rInE "(password|secret|api_key|token)\s*=\s*['\"][A-Za-z0-9+/=]{16,}" \
+            crypto/ backend/src/ 2>/dev/null || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::Possible hardcoded credential:"
+            echo "$HITS"
+            exit 1
+          fi
+
+  forbidden_patterns:
+    name: Cryptographic anti-pattern scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No plaintext fallback, no placeholder crypto
+        # These patterns represent the specific failure modes this project is
+        # built to avoid. Catching them mechanically is more reliable than
+        # catching them in review.
+        run: |
+          set -e
+          FAIL=0
+          check() {
+            HITS=$(grep -rInE "$1" crypto/reference backend/src 2>/dev/null || true)
+            if [ -n "$HITS" ]; then
+              echo "::error::$2"
+              echo "$HITS"
+              FAIL=1
+            fi
+          }
+          check "TODO.*(crypto|security)|FIXME.*(crypto|security)" \
+                "Unfinished cryptographic work committed"
+          check "send_plaintext|fallback_plaintext|if.*decrypt.*fail.*return raw" \
+                "Possible plaintext fallback path"
+          check "random\.random\(\)|Math\.random\(\)" \
+                "Non-cryptographic RNG in security-relevant code"
+          check "ECB|MD5|SHA1\(" \
+                "Broken or inappropriate primitive"
+          exit $FAIL
+
+  dependency_audit:
+    name: Dependency vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Audit Python dependencies
+        run: |
+          pip install pip-audit cryptography pytest hypothesis
+          pip-audit --strict
+
+  container:
+    name: Container build & hardening
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build relay image
+        run: docker build -f docker/Dockerfile -t helo-relay:ci .
+
+      - name: Container must not run as root
+        run: |
+          USER_ID=$(docker run --rm helo-relay:ci id -u)
+          if [ "$USER_ID" = "0" ]; then
+            echo "::error::Relay container runs as root"
+            exit 1
+          fi
+          echo "Runs as uid $USER_ID"
+
+      - name: Image must contain no key material
+        run: |
+          if docker run --rm helo-relay:ci sh -c 'ls /app' | grep -qiE "key|secret|\.pem"; then
+            echo "::error::Key-like file baked into image"
+            exit 1
+          fi
+
+      - name: Vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: helo-relay:ci
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+  flutter:
+    name: Flutter client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze --fatal-infos
+
+      - name: Format check
+        working-directory: mobile
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Tests, including cross-implementation vector conformance
+        # These replay the SAME vectors the Python reference generates. If the
+        # Dart port and the reference disagree on a single derived byte, this
+        # fails -- which is the entire purpose of the vector file.
+        working-directory: mobile
+        run: flutter test

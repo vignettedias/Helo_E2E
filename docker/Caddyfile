@@ -1,0 +1,40 @@
+# TLS termination for the Helo relay.
+#
+# Caddy obtains and renews certificates automatically. Note carefully: TLS here
+# protects metadata in transit and authenticates the SERVER to the client. It
+# provides NO message confidentiality guarantee -- that comes entirely from the
+# Double Ratchet, which is why a compromised or malicious TLS terminator still
+# cannot read messages.
+
+{$RELAY_DOMAIN:localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	# Server-Sent Events delivery stream must not be buffered or timed out.
+	@stream path /messages/stream
+	reverse_proxy @stream relay:8443 {
+		flush_interval -1
+		transport http {
+			response_header_timeout 24h
+		}
+	}
+
+	reverse_proxy relay:8443
+
+	log {
+		output stdout
+		format json
+		# Access logs are metadata. Retain them briefly and never log request
+		# bodies -- a body log would write user ciphertext into the log store,
+		# where access control is typically weaker than the database's.
+	}
+}

@@ -1,0 +1,120 @@
+{
+  "disclaimer": "Reference Python implementation on a general-purpose machine. NOT mobile performance. Do not quote as such.",
+  "environment": {
+    "python": "3.12.3",
+    "platform": "Linux-6.18.5-fc-v20-x86_64-with-glibc2.39",
+    "processor": "x86_64"
+  },
+  "timings": [
+    {
+      "operation": "identity_key_generation",
+      "iterations": 200,
+      "mean_ms": 0.1905,
+      "median_ms": 0.1664,
+      "p95_ms": 0.3075,
+      "min_ms": 0.1589,
+      "max_ms": 0.3375
+    },
+    {
+      "operation": "signed_prekey_rotation",
+      "iterations": 200,
+      "mean_ms": 0.1318,
+      "median_ms": 0.1234,
+      "p95_ms": 0.1835,
+      "min_ms": 0.119,
+      "max_ms": 0.2575
+    },
+    {
+      "operation": "one_time_prekey_x100",
+      "iterations": 20,
+      "mean_ms": 4.6866,
+      "median_ms": 4.5395,
+      "p95_ms": 4.9699,
+      "min_ms": 4.3956,
+      "max_ms": 6.4301
+    },
+    {
+      "operation": "x3dh_session_establishment_initiator",
+      "iterations": 200,
+      "mean_ms": 0.8937,
+      "median_ms": 0.8491,
+      "p95_ms": 1.2464,
+      "min_ms": 0.7754,
+      "max_ms": 1.6885
+    },
+    {
+      "operation": "prekey_bundle_verification",
+      "iterations": 500,
+      "mean_ms": 0.292,
+      "median_ms": 0.2734,
+      "p95_ms": 0.4263,
+      "min_ms": 0.2506,
+      "max_ms": 0.9161
+    },
+    {
+      "operation": "message_encrypt_256B",
+      "iterations": 500,
+      "mean_ms": 0.0251,
+      "median_ms": 0.0232,
+      "p95_ms": 0.0326,
+      "min_ms": 0.0225,
+      "max_ms": 0.0855
+    },
+    {
+      "operation": "encrypt_decrypt_roundtrip_256B",
+      "iterations": 300,
+      "mean_ms": 1.147,
+      "median_ms": 1.0947,
+      "p95_ms": 1.3831,
+      "min_ms": 1.0074,
+      "max_ms": 1.9752
+    },
+    {
+      "operation": "dh_ratchet_step_pair",
+      "iterations": 60,
+      "mean_ms": 5.792,
+      "median_ms": 5.6624,
+      "p95_ms": 6.3458,
+      "min_ms": 5.4087,
+      "max_ms": 8.6328
+    }
+  ],
+  "ciphertext_expansion": [
+    {
+      "plaintext_bytes": 0,
+      "ciphertext_bytes": 16,
+      "header_bytes": 41,
+      "total_overhead_bytes": 57
+    },
+    {
+      "plaintext_bytes": 64,
+      "ciphertext_bytes": 80,
+      "header_bytes": 41,
+      "total_overhead_bytes": 57
+    },
+    {
+      "plaintext_bytes": 256,
+      "ciphertext_bytes": 272,
+      "header_bytes": 41,
+      "total_overhead_bytes": 57
+    },
+    {
+      "plaintext_bytes": 1024,
+      "ciphertext_bytes": 1040,
+      "header_bytes": 41,
+      "total_overhead_bytes": 57
+    },
+    {
+      "plaintext_bytes": 4096,
+      "ciphertext_bytes": 4112,
+      "header_bytes": 41,
+      "total_overhead_bytes": 57
+    },
+    {
+      "plaintext_bytes": 16384,
+      "ciphertext_bytes": 16400,
+      "header_bytes": 41,
+      "total_overhead_bytes": 57
+    }
+  ]
+}

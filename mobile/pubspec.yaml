@@ -1,0 +1,41 @@
+name: helo
+description: >
+  Helo — end-to-end encrypted messaging. Classical X3DH + Double Ratchet with
+  an untrusted ciphertext relay. NOT post-quantum secure.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Audited cryptographic primitives. No primitive is implemented by hand in
+  # this project; see lib/crypto/primitives.dart.
+  cryptography: ^2.7.0
+
+  # Hardware-backed key storage: Android Keystore / iOS Keychain.
+  flutter_secure_storage: ^9.2.2
+
+  # Encrypted local database for session state and message history.
+  sqflite_sqlcipher: ^3.1.0+1
+  path: ^1.9.0
+
+  mobile_scanner: ^5.2.3   # QR safety-number verification
+  qr_flutter: ^4.1.0
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # The SAME vector file the Python reference generates. Conformance is
+    # checked against it in test/vector_conformance_test.dart.
+    - ../tests/vectors/helo_vectors.json

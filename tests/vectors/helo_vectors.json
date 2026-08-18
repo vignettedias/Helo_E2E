@@ -1,0 +1,452 @@
+{
+  "double_ratchet": {
+    "alice_identity_private": {
+      "dh_priv": "n6jnXBl9Dau9A62HJEnw1LLOYdsD1JSxtiaXmHlzdrU=",
+      "sig_seed": "fr66ZLUTMbz0s36puksLm0DxD8QOPvvDhSbmzz9tkPs="
+    },
+    "bob_identity_private": {
+      "dh_priv": "4DVkiz3O0vOTkdCmFcZfSQk+Lc7u4xB5RMBhYiv34gw=",
+      "sig_seed": "hMM5S8a6Rqv6xGXJUgktARl71c1u9BcV9qFB2EznHH0="
+    },
+    "bob_one_time_prekey_private": null,
+    "bob_prekey_bundle": {
+      "device_id": "bob-device-1",
+      "identity": {
+        "binding_sig": "XsRrjgCU2Ky6w6SIPUogfLytSKXykKI0R5Tr5eQetkwynv2X2sePMovCqjvvXQu7RYMo7QnX8rYp2D17L8fQCg==",
+        "dh_pub": "cTJ1hedxjW6mXR+K5Wfrb0ZqSuqaQ14LL3F4GvhO1G0=",
+        "sig_pub": "fK0HeAfNUgeqbM4BbiI7zaAPbO6AUTnx07EX3gBA5tc="
+      },
+      "one_time_prekey": {
+        "key_id": 1,
+        "public": "e5jZ0iM9mQTAU94kvRLa/PWvBXRcY0yASWxDFyghIRM="
+      },
+      "signed_prekey": {
+        "created_at": 1700000000,
+        "key_id": 1,
+        "public": "HsTSgnnhgsHsR2GQT+nDHal5Xfk+oQoan+cRM3FuSEw=",
+        "signature": "s2UCU7BuRVQSBlnCS4Ds62akYLI2EgHXTWJnEUaZYNw3AXP/wk0GC9O5m4aRyhlnUi617iW5iHOsUlS/FJ1UCw=="
+      }
+    },
+    "bob_signed_prekey_private": "3ZRtH/KUOFzPONIABUVyQtuX8itAS5NVPztsxVi/u9s=",
+    "description": "Full Double Ratchet transcript. A conforming implementation seeded with the listed private keys must produce byte-identical envelopes.",
+    "transcript": [
+      {
+        "direction": "alice->bob",
+        "envelope": {
+          "ciphertext": "hngTvRtqsgsrvnqtdxi0nYrhlvLOTH9sxbD65qp/X9842Jkhx5tX14gs",
+          "header": "AbhZOFyiZ0nFeUmWQcYPXwZoYmdFmUPRxsUxUgxMm8pGAAAAAAAAAAA=",
+          "sender_device_id": "alice-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "prekey",
+          "v": 1,
+          "x3dh": {
+            "ephemeral_pub": "w6F2ud5yseWjhajm7/zjhOLuxsMQZMQAtxjb/TB9il4=",
+            "initiator_identity": {
+              "binding_sig": "nzqjpo8CiGSpMKEmQLQtUm+aWcI6+z4bFcOXlUPCwamTsuRHEetqhDxm3BIGXFtKqijMMrHL8WDFo4BmwG3VCg==",
+              "dh_pub": "5izwE+jjn+Xrwd7flamkVYu7G0Yzx9uiLVkDbe2+GjA=",
+              "sig_pub": "T9b/np54ZEdk+ipAkO1Lnfcw1LroD27/LdxYbNmHE0w="
+            },
+            "one_time_prekey_id": 1,
+            "signed_prekey_id": 1,
+            "version": 1
+          }
+        },
+        "plaintext": "QTA6IGluaXRpYWwgcHJla2V5IG1lc3NhZ2U="
+      },
+      {
+        "direction": "alice->bob",
+        "envelope": {
+          "ciphertext": "4gd8xy6vVr8hvnd7pwmab/VcsDfC8P4NGHj8el8WdvZ4wFZzdkw=",
+          "header": "AbhZOFyiZ0nFeUmWQcYPXwZoYmdFmUPRxsUxUgxMm8pGAAAAAAAAAAE=",
+          "sender_device_id": "alice-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "prekey",
+          "v": 1,
+          "x3dh": {
+            "ephemeral_pub": "w6F2ud5yseWjhajm7/zjhOLuxsMQZMQAtxjb/TB9il4=",
+            "initiator_identity": {
+              "binding_sig": "nzqjpo8CiGSpMKEmQLQtUm+aWcI6+z4bFcOXlUPCwamTsuRHEetqhDxm3BIGXFtKqijMMrHL8WDFo4BmwG3VCg==",
+              "dh_pub": "5izwE+jjn+Xrwd7flamkVYu7G0Yzx9uiLVkDbe2+GjA=",
+              "sig_pub": "T9b/np54ZEdk+ipAkO1Lnfcw1LroD27/LdxYbNmHE0w="
+            },
+            "one_time_prekey_id": 1,
+            "signed_prekey_id": 1,
+            "version": 1
+          }
+        },
+        "plaintext": "QTE6IHNhbWUgc2VuZGluZyBjaGFpbg=="
+      },
+      {
+        "direction": "alice->bob",
+        "envelope": {
+          "ciphertext": "IA66nCc6mDo8s4Hq+1FilcrCYjn2aMLDf0BVKTLXd4gqwQ8ReKk=",
+          "header": "AbhZOFyiZ0nFeUmWQcYPXwZoYmdFmUPRxsUxUgxMm8pGAAAAAAAAAAI=",
+          "sender_device_id": "alice-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "prekey",
+          "v": 1,
+          "x3dh": {
+            "ephemeral_pub": "w6F2ud5yseWjhajm7/zjhOLuxsMQZMQAtxjb/TB9il4=",
+            "initiator_identity": {
+              "binding_sig": "nzqjpo8CiGSpMKEmQLQtUm+aWcI6+z4bFcOXlUPCwamTsuRHEetqhDxm3BIGXFtKqijMMrHL8WDFo4BmwG3VCg==",
+              "dh_pub": "5izwE+jjn+Xrwd7flamkVYu7G0Yzx9uiLVkDbe2+GjA=",
+              "sig_pub": "T9b/np54ZEdk+ipAkO1Lnfcw1LroD27/LdxYbNmHE0w="
+            },
+            "one_time_prekey_id": 1,
+            "signed_prekey_id": 1,
+            "version": 1
+          }
+        },
+        "plaintext": "QTI6IHNhbWUgc2VuZGluZyBjaGFpbg=="
+      },
+      {
+        "direction": "bob->alice",
+        "envelope": {
+          "ciphertext": "74n+LmDBxUR5++mF0yCbBci1AeBkdZFQEMlSFK1pOER3mJ7aiexzfcar9zWDNg==",
+          "header": "AfUUKgYckLdjJXuHGi06+shlzFm4IVLffVfdPMVoJTAzAAAAAAAAAAA=",
+          "sender_device_id": "bob-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "normal",
+          "v": 1
+        },
+        "plaintext": "QjA6IHJlcGx5LCBmb3JjZXMgYSBESCByYXRjaGV0"
+      },
+      {
+        "direction": "bob->alice",
+        "envelope": {
+          "ciphertext": "kJl9wBopzkiWt+4Ib7gTQ0TTVDHc6Q62nIMtjk4fhJu4EG7jJ7tofS1A+jKK+Q==",
+          "header": "AfUUKgYckLdjJXuHGi06+shlzFm4IVLffVfdPMVoJTAzAAAAAAAAAAE=",
+          "sender_device_id": "bob-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "normal",
+          "v": 1
+        },
+        "plaintext": "QjE6IHJlcGx5LCBmb3JjZXMgYSBESCByYXRjaGV0"
+      },
+      {
+        "direction": "alice->bob",
+        "envelope": {
+          "ciphertext": "mhZKBuT+5AZ1UFin65d06i+UF4oi0uZeEcVwLmuVx8xPTu1j1xeHN220/fctf+/UfIqo",
+          "header": "AWsMo4bnRHYMHuO0Qt7X4uqOoXQqdEeAgQdfzB4haI9qAAAAAwAAAAA=",
+          "sender_device_id": "alice-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "normal",
+          "v": 1
+        },
+        "plaintext": "QTA6IG5ldyBzZW5kaW5nIGNoYWluIGFmdGVyIHJhdGNoZXQ="
+      },
+      {
+        "direction": "alice->bob",
+        "envelope": {
+          "ciphertext": "mxnGgiafy8d34FTc+QaYf0f1cnua687i8EwkTd8DS9LWN4TATf9qPpN8pzdQewT28FUK",
+          "header": "AWsMo4bnRHYMHuO0Qt7X4uqOoXQqdEeAgQdfzB4haI9qAAAAAwAAAAE=",
+          "sender_device_id": "alice-device-1",
+          "session_id": "9d7815eaea4f28551726b2e0d64607c8",
+          "type": "normal",
+          "v": 1
+        },
+        "plaintext": "QTE6IG5ldyBzZW5kaW5nIGNoYWluIGFmdGVyIHJhdGNoZXQ="
+      }
+    ]
+  },
+  "format_version": 1,
+  "out_of_order": {
+    "bob_prekey_bundle": {
+      "device_id": "bob-device-1",
+      "identity": {
+        "binding_sig": "BO7TbE983ZY3He7THwCymTW6otR999IXfRD2zyjwihAlZcLGAnPV5xgmpEdU0sxnQTTJj1ijXE02eItwaJ4fCQ==",
+        "dh_pub": "8c3C2mqz8TQidMoGts0kcXcn3wBOlaMKuiE246tPuWw=",
+        "sig_pub": "EOTHll8sccYF4/WlGf35kaXKmPlCNiBteXSxP1RWfok="
+      },
+      "one_time_prekey": {
+        "key_id": 1,
+        "public": "b2y2kz4c+yXrrMlMRIcMcUvyH8tAWPQVfOvxW/4I/G8="
+      },
+      "signed_prekey": {
+        "created_at": 1700000000,
+        "key_id": 1,
+        "public": "FpFNdwBDerz7doQmU2P/Pu06Qt22V87BmgOgT2jHEkE=",
+        "signature": "ESKfvPzKtEG1X9YFZD1xhLUYO971+6frWwyt+7WAkdLfbjMC29gSAmKNq3/m5kAWh4pJTjdm/dyy6tEmDNw/AQ=="
+      }
+    },
+    "bootstrap_envelope": {
+      "ciphertext": "RWW+pkzmBv4STCZ3qR8LuFGg",
+      "header": "AapVpM5GMPXE6QvJb1DjqDU9eV3EnAcexNrd0KSEv1B0AAAAAAAAAAA=",
+      "sender_device_id": "alice-device-1",
+      "session_id": "fca18941d9f401b947088062f080c6cd",
+      "type": "prekey",
+      "v": 1,
+      "x3dh": {
+        "ephemeral_pub": "vLT37apUDcBuPsEqvyOsIxzSuHgh5ppQhttVEGZkli8=",
+        "initiator_identity": {
+          "binding_sig": "LUSU4C+ggrzPdMF9mFt8ehd2gas+EzJ+bCkVaGjdTAW8VM0WBUMLdhkyUR/UJ+vxoAqqtG9VW6m58Tq29brxDg==",
+          "dh_pub": "bKTvS1tgCbv5HYsVmIBb8U9u+CJ0Yhdh4O805EghrXg=",
+          "sig_pub": "pXjflrwGRnajKqgjLv+fXmLS4/if4ZxFQeznSsfXkQg="
+        },
+        "one_time_prekey_id": 1,
+        "signed_prekey_id": 1,
+        "version": 1
+      }
+    },
+    "delivery_order": [
+      0,
+      2,
+      1,
+      3
+    ],
+    "description": "Out-of-order delivery: sent 1,2,3,4 delivered 1,3,2,4.",
+    "envelopes": [
+      {
+        "ciphertext": "VZkVW/FjJ1THCKb3bbIBOiaC",
+        "header": "AapVpM5GMPXE6QvJb1DjqDU9eV3EnAcexNrd0KSEv1B0AAAAAAAAAAE=",
+        "sender_device_id": "alice-device-1",
+        "session_id": "fca18941d9f401b947088062f080c6cd",
+        "type": "prekey",
+        "v": 1,
+        "x3dh": {
+          "ephemeral_pub": "vLT37apUDcBuPsEqvyOsIxzSuHgh5ppQhttVEGZkli8=",
+          "initiator_identity": {
+            "binding_sig": "LUSU4C+ggrzPdMF9mFt8ehd2gas+EzJ+bCkVaGjdTAW8VM0WBUMLdhkyUR/UJ+vxoAqqtG9VW6m58Tq29brxDg==",
+            "dh_pub": "bKTvS1tgCbv5HYsVmIBb8U9u+CJ0Yhdh4O805EghrXg=",
+            "sig_pub": "pXjflrwGRnajKqgjLv+fXmLS4/if4ZxFQeznSsfXkQg="
+          },
+          "one_time_prekey_id": 1,
+          "signed_prekey_id": 1,
+          "version": 1
+        }
+      },
+      {
+        "ciphertext": "4PxeP9i2anLFtSuWS2IoiVbw",
+        "header": "AapVpM5GMPXE6QvJb1DjqDU9eV3EnAcexNrd0KSEv1B0AAAAAAAAAAI=",
+        "sender_device_id": "alice-device-1",
+        "session_id": "fca18941d9f401b947088062f080c6cd",
+        "type": "prekey",
+        "v": 1,
+        "x3dh": {
+          "ephemeral_pub": "vLT37apUDcBuPsEqvyOsIxzSuHgh5ppQhttVEGZkli8=",
+          "initiator_identity": {
+            "binding_sig": "LUSU4C+ggrzPdMF9mFt8ehd2gas+EzJ+bCkVaGjdTAW8VM0WBUMLdhkyUR/UJ+vxoAqqtG9VW6m58Tq29brxDg==",
+            "dh_pub": "bKTvS1tgCbv5HYsVmIBb8U9u+CJ0Yhdh4O805EghrXg=",
+            "sig_pub": "pXjflrwGRnajKqgjLv+fXmLS4/if4ZxFQeznSsfXkQg="
+          },
+          "one_time_prekey_id": 1,
+          "signed_prekey_id": 1,
+          "version": 1
+        }
+      },
+      {
+        "ciphertext": "hJ8X+N7SzNqpPbuZRlxfnyjE",
+        "header": "AapVpM5GMPXE6QvJb1DjqDU9eV3EnAcexNrd0KSEv1B0AAAAAAAAAAM=",
+        "sender_device_id": "alice-device-1",
+        "session_id": "fca18941d9f401b947088062f080c6cd",
+        "type": "prekey",
+        "v": 1,
+        "x3dh": {
+          "ephemeral_pub": "vLT37apUDcBuPsEqvyOsIxzSuHgh5ppQhttVEGZkli8=",
+          "initiator_identity": {
+            "binding_sig": "LUSU4C+ggrzPdMF9mFt8ehd2gas+EzJ+bCkVaGjdTAW8VM0WBUMLdhkyUR/UJ+vxoAqqtG9VW6m58Tq29brxDg==",
+            "dh_pub": "bKTvS1tgCbv5HYsVmIBb8U9u+CJ0Yhdh4O805EghrXg=",
+            "sig_pub": "pXjflrwGRnajKqgjLv+fXmLS4/if4ZxFQeznSsfXkQg="
+          },
+          "one_time_prekey_id": 1,
+          "signed_prekey_id": 1,
+          "version": 1
+        }
+      },
+      {
+        "ciphertext": "EUyGfaVhRbtdTvX9iKcMVutK",
+        "header": "AapVpM5GMPXE6QvJb1DjqDU9eV3EnAcexNrd0KSEv1B0AAAAAAAAAAQ=",
+        "sender_device_id": "alice-device-1",
+        "session_id": "fca18941d9f401b947088062f080c6cd",
+        "type": "prekey",
+        "v": 1,
+        "x3dh": {
+          "ephemeral_pub": "vLT37apUDcBuPsEqvyOsIxzSuHgh5ppQhttVEGZkli8=",
+          "initiator_identity": {
+            "binding_sig": "LUSU4C+ggrzPdMF9mFt8ehd2gas+EzJ+bCkVaGjdTAW8VM0WBUMLdhkyUR/UJ+vxoAqqtG9VW6m58Tq29brxDg==",
+            "dh_pub": "bKTvS1tgCbv5HYsVmIBb8U9u+CJ0Yhdh4O805EghrXg=",
+            "sig_pub": "pXjflrwGRnajKqgjLv+fXmLS4/if4ZxFQeznSsfXkQg="
+          },
+          "one_time_prekey_id": 1,
+          "signed_prekey_id": 1,
+          "version": 1
+        }
+      }
+    ],
+    "expected": [
+      {
+        "delivered_index": 0,
+        "plaintext": "TTE=",
+        "skipped_keys_stored_after": 0
+      },
+      {
+        "delivered_index": 2,
+        "plaintext": "TTM=",
+        "skipped_keys_stored_after": 1
+      },
+      {
+        "delivered_index": 1,
+        "plaintext": "TTI=",
+        "skipped_keys_stored_after": 0
+      },
+      {
+        "delivered_index": 3,
+        "plaintext": "TTQ=",
+        "skipped_keys_stored_after": 0
+      }
+    ]
+  },
+  "post_quantum": false,
+  "primitives": {
+    "aes_256_gcm": {
+      "associated_data": "QUQ=",
+      "ciphertext_with_tag": "D2e6dOWkh1rJYeHu0p0XH1G9Xgv7G7n3qKwGRCidgIo=",
+      "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "nonce": "AAECAwQFBgcICQoL",
+      "plaintext": "SGVsbyBBRUFEIHZlY3Rvcg=="
+    },
+    "chain_ratchet": {
+      "initial_chain_key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "steps": [
+        {
+          "aes_key": "WZCykppvuEazOEne3NRvB5z9zQf6T8A7saHEYpiM4mY=",
+          "index": 0,
+          "message_key": "m0yBIKSCOpX0fN4XokT0UHJE7m45V9H6ufoptE04Kbc=",
+          "next_chain_key": "QwTCLISlN1WrCOrY2XqNQpvl76SAaC160don9z4fvh0=",
+          "nonce": "hJ+WFxj61mryLqNl"
+        },
+        {
+          "aes_key": "aFARK9/lN9zoZ6uNl8mNCNhgTQ10yd9FujjUSrksHig=",
+          "index": 1,
+          "message_key": "93A8Od6p/rMMtjaTBK17hHuayljBFSrzF6p4qRvt3aE=",
+          "next_chain_key": "JvyGubEwPqLmb1PtDx3nU0B+VCjK9eRA5rUcSNS9SUk=",
+          "nonce": "gRkDPHotZhS5xgIU"
+        },
+        {
+          "aes_key": "SuqDiWERjXHZVxKyKIgEN+Bqvcq4PPKgKc/xDRfzsf8=",
+          "index": 2,
+          "message_key": "XSBCv0xgPPOqcZRzntCLwcaYp+x/uOd9PqJYjG/njOE=",
+          "next_chain_key": "BEKLgTZ1A2wHIz7dC+E7fEImEKjD1uzHyPvYVnHkehM=",
+          "nonce": "xwiewwW7zdCgVfZO"
+        },
+        {
+          "aes_key": "IgyxsbKGbQD+NAmxvjZZeK4ggIlZH6QM5kwMWDAfAnA=",
+          "index": 3,
+          "message_key": "f7TzAw6FhEavhff0x/9XPmWjlgvU6go9rv0B2/DhnNg=",
+          "next_chain_key": "+RbPFM2kkTsGycbKId4o55dMUxfnH3NuUNCVN0hL0v4=",
+          "nonce": "8+1tMd8T3GMki22w"
+        }
+      ]
+    },
+    "hkdf_sha256": {
+      "ikm": "aW5wdXQga2V5aW5nIG1hdGVyaWFs",
+      "info": "SGVsb19UZXN0VmVjdG9yX3Yx",
+      "length": 64,
+      "okm": "Paz1Gy98cZysUYboyOQdwTH7GAQT6CVG7Iz7VCGxs92kNScPHCghscGp4omCo50kpOhB7BYr0fd9s1fCTqX9oQ==",
+      "salt": "c2FsdA=="
+    },
+    "root_ratchet": {
+      "dh_output": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo=",
+      "new_chain_key": "mUYUep2KomE+rxHL8ybkH8Nx1wUNLpq5a2myzc6LmpQ=",
+      "new_root_key": "8D5xUKZeYFY4RUTw1tEmXYYXbx06OxQHR/oCdVggW4g=",
+      "root_key": "paWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaU="
+    }
+  },
+  "protocol": "Helo/1 X3DH-Curve25519-SHA256 + DoubleRatchet + AES-256-GCM",
+  "seed": "Helo test vector seed v1 -- NOT FOR PRODUCTION USE",
+  "warning": "Private keys in this file are DERIVED FROM A FIXED TEST SEED and are PUBLIC BY DESIGN. They must never be used for anything real.",
+  "x3dh": {
+    "alice_fingerprint": "ZW5BV95YjxLUwNXNwfW+npkfLNAp6MjxCuapMBj9ua0=",
+    "alice_identity_private": {
+      "dh_priv": "rMhDtd37kGrjBi0Xg+bgmx3XKe3FCUXaMDJdV9KLGQU=",
+      "sig_seed": "XiUWxFCCHD59QAy2Pxfudo4ctnu5DkM32rNconlW4QE="
+    },
+    "alice_identity_public": {
+      "binding_sig": "r/XDWk+rs4EnmyI7mdwohNQmXJBfLYQEqQZsiiyNVcwo6L/OM7grpcWWDlRye8ttZq54Zj67grIsetg1xA4pDg==",
+      "dh_pub": "XSOna2I0GeUucN3jQKiBBhLcKSR2t/aF5TjeLdZn2nE=",
+      "sig_pub": "PvPn2WSDADZJmkTXqs97bw0KnShgzHT6wOEhXp24YmE="
+    },
+    "bob_fingerprint": "g8f66oZEU1W+lC4DVQi0olndO6owQgAD35tZlCYgdl4=",
+    "bob_identity_private": {
+      "dh_priv": "hlubSubACrBeNskGHtI6bv7tdlHgCpGKABU7nEQ1kVE=",
+      "sig_seed": "P0RXaFvb6YEQL5oDubqLQVk79tEizaBuXYkwpMkmGRw="
+    },
+    "bob_identity_public": {
+      "binding_sig": "fKBKcU9ZzCIhky4a/A3Hl8+BDMK72UKKNmPly/iAvxaGbb3E/8wpY1yWso0Yt+BUUScFzP35gjI10cKGPRKgCw==",
+      "dh_pub": "Y1VAFjBKj3/BCLercB+KSV153O4ZhSuItSix0RE0q0o=",
+      "sig_pub": "OMDfvJxkibXATKc57HgUApEAd3jD9xhiVmeVtU77xq4="
+    },
+    "bob_prekey_bundle": {
+      "device_id": "bob-device-1",
+      "identity": {
+        "binding_sig": "fKBKcU9ZzCIhky4a/A3Hl8+BDMK72UKKNmPly/iAvxaGbb3E/8wpY1yWso0Yt+BUUScFzP35gjI10cKGPRKgCw==",
+        "dh_pub": "Y1VAFjBKj3/BCLercB+KSV153O4ZhSuItSix0RE0q0o=",
+        "sig_pub": "OMDfvJxkibXATKc57HgUApEAd3jD9xhiVmeVtU77xq4="
+      },
+      "one_time_prekey": {
+        "key_id": 1,
+        "public": "Jgl/priDhweswqmt3WGzoAQ60rbPiLHrJgSYfRpifFE="
+      },
+      "signed_prekey": {
+        "created_at": 1700000000,
+        "key_id": 1,
+        "public": "BSmm/AMFnlGgdPP4Xk1UJnX+rpxbgF3QHxy/3hqZLk8=",
+        "signature": "Q10hEpXgNbLYXgoM8h025osAVW++a5jJyDMTUZqqJ1gTPf0Sh9sdrm+uhZugu0ihOXThP8N2sVF3ut+CDK/NCg=="
+      }
+    },
+    "bob_signed_prekey_private": "+3He7dmKdHDyrbL+kXSyiuueq5rPYx+yjIRzsOWDl1o=",
+    "description": "Classical X3DH over Curve25519 with HKDF-SHA256.",
+    "four_dh": {
+      "associated_data": "SGVsb19BRF92MQEAID7z59lkgwA2SZpE16rPe28NCp0oYMx0+sDhIV6duGJhACBdI6drYjQZ5S5w3eNAqIEGEtwpJHa39oXlON4t1mfacQEAIDjA37ycZIm1wEynOex4FAKRAHd4w/cYYlZnlbVO+8auACBjVUAWMEqPf8EIt6twH4pJXXnc7hmFK4i1KLHRETSrSg==",
+      "initial_header": {
+        "ephemeral_pub": "5qVc1fo8LYll4df7z1HMvZNBq572+UZUPj60oEkeWzs=",
+        "initiator_identity": {
+          "binding_sig": "r/XDWk+rs4EnmyI7mdwohNQmXJBfLYQEqQZsiiyNVcwo6L/OM7grpcWWDlRye8ttZq54Zj67grIsetg1xA4pDg==",
+          "dh_pub": "XSOna2I0GeUucN3jQKiBBhLcKSR2t/aF5TjeLdZn2nE=",
+          "sig_pub": "PvPn2WSDADZJmkTXqs97bw0KnShgzHT6wOEhXp24YmE="
+        },
+        "one_time_prekey_id": 1,
+        "signed_prekey_id": 1,
+        "version": 1
+      },
+      "session_id": "1a06ebf88cc55dfc64e39db4a9046489",
+      "shared_secret": "8cIxTCu58w3IxYWPXWhhm+o0btbYv82LcEJK9Vj9/Tw=",
+      "used_one_time_prekey": true
+    },
+    "safety_number": "00531 25499 43108 58846 34218 02247 56735 20242 28802 25667 35856 06369",
+    "three_dh": {
+      "associated_data": "SGVsb19BRF92MQEAID7z59lkgwA2SZpE16rPe28NCp0oYMx0+sDhIV6duGJhACBdI6drYjQZ5S5w3eNAqIEGEtwpJHa39oXlON4t1mfacQEAIDjA37ycZIm1wEynOex4FAKRAHd4w/cYYlZnlbVO+8auACBjVUAWMEqPf8EIt6twH4pJXXnc7hmFK4i1KLHRETSrSg==",
+      "comment": "Separate prekey store, so this variant has its OWN signed prekey. Pinning it explicitly is required for replay.",
+      "initial_header": {
+        "ephemeral_pub": "fpKGmTyfvdF1mcUAeIPntGQCUXcWZGnheC7xtBvnizo=",
+        "initiator_identity": {
+          "binding_sig": "r/XDWk+rs4EnmyI7mdwohNQmXJBfLYQEqQZsiiyNVcwo6L/OM7grpcWWDlRye8ttZq54Zj67grIsetg1xA4pDg==",
+          "dh_pub": "XSOna2I0GeUucN3jQKiBBhLcKSR2t/aF5TjeLdZn2nE=",
+          "sig_pub": "PvPn2WSDADZJmkTXqs97bw0KnShgzHT6wOEhXp24YmE="
+        },
+        "one_time_prekey_id": null,
+        "signed_prekey_id": 1,
+        "version": 1
+      },
+      "prekey_bundle": {
+        "device_id": "bob-device-1",
+        "identity": {
+          "binding_sig": "fKBKcU9ZzCIhky4a/A3Hl8+BDMK72UKKNmPly/iAvxaGbb3E/8wpY1yWso0Yt+BUUScFzP35gjI10cKGPRKgCw==",
+          "dh_pub": "Y1VAFjBKj3/BCLercB+KSV153O4ZhSuItSix0RE0q0o=",
+          "sig_pub": "OMDfvJxkibXATKc57HgUApEAd3jD9xhiVmeVtU77xq4="
+        },
+        "one_time_prekey": null,
+        "signed_prekey": {
+          "created_at": 1700000000,
+          "key_id": 1,
+          "public": "fpIlgcgpX0+YL688A6ZwPIRWDWFoU4E58jJGqbPuQjo=",
+          "signature": "ER5zIvPviaBAfKCUcvbFcxinX16lHh7VLP962RFG+c3YS7kbvtOh84K+QLoUw+2bZA5TKw+JiUdJE/RqDvoRCA=="
+        }
+      },
+      "session_id": "a3255188874a575f7401de7d257fa97b",
+      "shared_secret": "9uYBnITMdbcs2V0Ko6FapXlGj5vDZCHt+QixuEhk9CU=",
+      "signed_prekey_private": "NR4VU3fa3lhtbt7XPnBJkzwsSV2WQIyBkzfnXY/uA+Y=",
+      "used_one_time_prekey": false
+    }
+  }
+}
