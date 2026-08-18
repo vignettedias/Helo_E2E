@@ -1,0 +1,33 @@
+# Lint configuration. Committed so CI and local runs agree exactly — a lint
+# gate that only fails in CI is a gate developers learn to route around.
+
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "SIM", "UP", "RUF"]
+
+ignore = [
+    # Deliberate: pytest's idiom for unpacking a fixture is `a, b = fixture`,
+    # and tests routinely use only one half.
+    "RUF059",
+    # Scripts are invoked as `python3 scripts/x.py`, not via the shebang, so
+    # the executable bit is intentionally not set.
+    "EXE001",
+    # Long explanatory comments in cryptographic code are worth more than a
+    # column limit. Code itself still respects line-length.
+    "E501",
+]
+
+[lint.per-file-ignores]
+# These files must insert the reference implementation onto sys.path BEFORE
+# importing from it, so imports genuinely cannot be at the top of the file.
+"scripts/*.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+"tests/**/*.py" = ["E402"]
+# Tests deliberately catch broadly when asserting that SOMETHING failed closed,
+# and import inside functions to keep each test self-describing.
+"tests/**" = ["B017", "BLE001", "F841", "PLC0415"]
+# The integration script normalises every network/subprocess failure into a
+# single readable check result; distinguishing them would add noise, not safety.
+"scripts/integration_e2e.py" = ["BLE001"]

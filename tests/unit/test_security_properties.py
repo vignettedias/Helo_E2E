@@ -14,12 +14,10 @@ messages_still_in_flight).
 import copy
 
 import pytest
-
-from helo_ref.errors import ReplayError, HeloError
+from conftest import wire
+from helo_ref.errors import HeloError
 from helo_ref.message import Envelope
 from helo_ref.ratchet import decrypt as ratchet_decrypt
-
-from conftest import Party, wire
 
 
 def attacker_snapshot(session):
@@ -202,7 +200,6 @@ def test_attacker_cannot_impersonate_after_recovery(established):
 
 def test_every_message_uses_a_distinct_key_and_nonce(established):
     """No message key or nonce is ever reused within a session."""
-    from helo_ref.ratchet import expand_message_key, kdf_chain
 
     alice, bob = established
 

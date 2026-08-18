@@ -28,7 +28,7 @@ how implementations accidentally build a downgrade path.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 from .encoding import b64d, b64e
@@ -52,9 +52,16 @@ from .primitives import (
     hkdf,
     sha256,
 )
-from .ratchet import RatchetState, decrypt as ratchet_decrypt, encrypt as ratchet_encrypt
-from .ratchet import init_initiator, init_responder
-from .x3dh import ClassicalX3DH, X3DHResult, associated_data
+from .ratchet import RatchetState, init_initiator, init_responder
+from .ratchet import decrypt as ratchet_decrypt
+from .ratchet import encrypt as ratchet_encrypt
+from .x3dh import ClassicalX3DH, X3DHResult
+
+# Module-level singleton. Constructing this inside a default argument builds the
+# instance once at import time and shares it implicitly -- the mutable-default
+# trap. Naming it here makes the sharing explicit, and gives PQXDH a single
+# place to be swapped in later.
+DEFAULT_KEY_ESTABLISHMENT = ClassicalX3DH()
 
 STATE_FORMAT_VERSION = 1
 
@@ -263,7 +270,7 @@ class Session:
         return nonce + aes256gcm_encrypt(key, nonce, self._serialise(), ad)
 
     @staticmethod
-    def load(blob: bytes, storage_key: bytes, session_id: str) -> "Session":
+    def load(blob: bytes, storage_key: bytes, session_id: str) -> Session:
         """Decrypt and validate persisted state. Fails closed on corruption."""
         if len(blob) < AES_GCM_NONCE_LEN + 16:
             raise SessionStateCorruptError("stored session blob is truncated")
@@ -277,7 +284,7 @@ class Session:
         ad = b"Helo_State_v1|" + session_id.encode()
         try:
             raw = aes256gcm_decrypt(key, nonce, sealed, ad)
-        except Exception as exc:  # noqa: BLE001 - normalise to a corruption error
+        except Exception as exc:
             raise SessionStateCorruptError(
                 "stored session state failed authentication"
             ) from exc
@@ -316,7 +323,7 @@ class Session:
             )
         except SessionStateCorruptError:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise SessionStateCorruptError("stored session state is malformed") from exc
 
 
@@ -329,7 +336,7 @@ def start_as_initiator(
     local_device_id: str,
     bundle: PreKeyBundle,
     rng: RandomSource = DEFAULT_RANDOM,
-    kex=ClassicalX3DH(),
+    kex=DEFAULT_KEY_ESTABLISHMENT,
 ) -> Session:
     """Alice starts a session against a bundle fetched from the relay.
 
@@ -355,7 +362,7 @@ def start_as_responder(
     local_device_id: str,
     prekeys: PreKeyStore,
     envelope: Envelope,
-    kex=ClassicalX3DH(),
+    kex=DEFAULT_KEY_ESTABLISHMENT,
 ) -> Session:
     """Bob builds his side from Alice's first (prekey) message."""
     if envelope.x3dh is None:

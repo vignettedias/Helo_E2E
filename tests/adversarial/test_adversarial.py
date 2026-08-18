@@ -5,16 +5,16 @@ tests that produce the evidence column in SECURITY_CLAIMS.md.
 """
 
 import base64
-import copy
 import json
 
 import pytest
-
+from conftest import wire
 from helo_ref.errors import (
     AuthenticationError,
     IdentityChangedError,
     InvalidEncodingError,
     InvalidKeyError,
+    InvalidStateTransitionError,
     PreKeyUnavailableError,
     ReplayError,
     SessionStateCorruptError,
@@ -26,8 +26,6 @@ from helo_ref.message import Envelope
 from helo_ref.prekeys import PreKeyStore
 from helo_ref.ratchet import MAX_SKIP
 from helo_ref.session import start_as_initiator, start_as_responder
-
-from conftest import Party, wire
 
 pytestmark = pytest.mark.adversarial
 
@@ -238,7 +236,9 @@ def test_identity_change_on_established_session_is_flagged(established):
     assert bob.session.verification is VerificationStatus.IDENTITY_CHANGED
 
     # A user cannot dismiss the warning by simply marking the peer verified.
-    with pytest.raises(Exception):
+    # Assert the SPECIFIC error: a bare Exception would also pass if the call
+    # failed for an unrelated reason, which would silently hollow out the test.
+    with pytest.raises(InvalidStateTransitionError):
         bob.session.mark_verified()
 
 

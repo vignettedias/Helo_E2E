@@ -5,16 +5,14 @@ the EXACT suite the Dart client must also pass; porting it is what proves the
 two implementations speak the same protocol rather than two dialects.
 """
 
-import base64
 import json
 from pathlib import Path
 
 import pytest
-
+from helo_ref import x3dh
 from helo_ref.encoding import b64d
-from helo_ref.identity import IdentityKeyPair, IdentityPublic, safety_number
-from helo_ref.message import Envelope
-from helo_ref.prekeys import PreKeyBundle, PreKeyStore
+from helo_ref.identity import IdentityKeyPair, safety_number
+from helo_ref.prekeys import PreKeyBundle
 from helo_ref.primitives import (
     aes256gcm_decrypt,
     ed25519_from_seed,
@@ -22,10 +20,6 @@ from helo_ref.primitives import (
     x25519_from_private,
 )
 from helo_ref.ratchet import expand_message_key, kdf_chain, kdf_root
-from helo_ref.session import start_as_initiator, start_as_responder
-from helo_ref import x3dh
-
-from conftest import Party, wire
 
 VECTOR_PATH = Path(__file__).resolve().parents[2] / "tests" / "vectors" / "helo_vectors.json"
 
@@ -113,11 +107,10 @@ def test_vector_x3dh_initiator_derives_expected_secret(vectors):
 
     # Recompute from Bob's side using his pinned private keys.
     spk_priv = b64d(v["bob_signed_prekey_private"])
-    bob = _identity_from_vector(v["bob_identity_private"])
     dh1_b = x25519_dh(spk_priv, alice.dh_pub)
-    dh2_b = x25519_dh(bob.dh_priv, eph_pub)
-    dh3_b = x25519_dh(spk_priv, eph_pub)
-    assert dh1 == dh1_b, "DH1 must match from both sides"
+    assert dh1 == dh1_b, "DH1 must match when computed from either side"
+    # DH2 and DH3 are exercised end-to-end by test_vector_x3dh_responder_matches,
+    # which recomputes the full secret rather than individual DH outputs.
 
     otp_id = header.one_time_prekey_id
     assert otp_id is not None

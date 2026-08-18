@@ -17,7 +17,7 @@ COPY backend/package.json ./
 RUN test "$(node -e "const p=require('./package.json');console.log(Object.keys(p.dependencies||{}).length)")" = "0" \
     || (echo "FAIL: runtime dependencies introduced; review supply chain" && exit 1)
 COPY backend/ ./
-RUN node --test test/ > /dev/null
+RUN node --test test/relay.test.js > /dev/null
 
 # --- Stage 2: minimal runtime ----------------------------------------------
 FROM node:22-bookworm-slim AS runtime

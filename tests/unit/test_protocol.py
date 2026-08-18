@@ -1,7 +1,9 @@
 """Unit tests for primitives, X3DH, ratchet mechanics, and key lifecycle."""
 
 import pytest
-
+from conftest import Party, wire
+from helo_ref import x3dh
+from helo_ref.encoding import HEADER_LEN, RatchetHeader
 from helo_ref.errors import (
     AuthenticationError,
     InvalidEncodingError,
@@ -10,9 +12,7 @@ from helo_ref.errors import (
     PreKeyUnavailableError,
     SignatureVerificationError,
 )
-from helo_ref.encoding import HEADER_LEN, RatchetHeader
 from helo_ref.identity import IdentityKeyPair, safety_number
-from helo_ref.prekeys import PreKeyStore
 from helo_ref.primitives import (
     aes256gcm_decrypt,
     aes256gcm_encrypt,
@@ -26,13 +26,7 @@ from helo_ref.primitives import (
 from helo_ref.session import (
     Session,
     SessionState,
-    start_as_initiator,
-    start_as_responder,
 )
-from helo_ref import x3dh
-
-from conftest import Party, wire
-
 
 # --- Primitives -------------------------------------------------------------
 
@@ -74,7 +68,6 @@ def test_low_order_points_are_rejected(bad):
 
 
 def test_ed25519_signature_round_trip():
-    seed, pub = IdentityKeyPair.generate().sig_seed, None
     kp = IdentityKeyPair.generate()
     sig = ed25519_sign(kp.sig_seed, b"message")
     ed25519_verify(kp.sig_pub, sig, b"message")
@@ -202,11 +195,23 @@ def test_out_of_order_across_a_dh_ratchet(established):
 
 
 def test_many_dh_ratchet_generations(established):
+    """30 round trips force 30 DH ratchet steps in each direction."""
     alice, bob = established
+    start_ratchet = alice.session.ratchet.dh_send_pub
+
     for i in range(30):
         assert bob.recv(alice.send(f"ping{i}".encode())) == f"ping{i}".encode()
         assert alice.recv(bob.send(f"pong{i}".encode())) == f"pong{i}".encode()
-    assert alice.session.ratchet.root_key != bob.session.ratchet.root_key or True
+
+    # Assert the ratchet actually ADVANCED, rather than asserting a tautology.
+    #
+    # Note n_send is NOT a valid check here: Alice's last action is a receive,
+    # and a DH ratchet step resets n_send to 0. prev_chain_len is the durable
+    # evidence that a sending chain was completed and then superseded.
+    assert alice.session.ratchet.dh_send_pub != start_ratchet
+    assert alice.session.ratchet.prev_chain_len > 0
+    assert len(alice.session.ratchet.seen_remote_ratchets) > 1
+    assert len(bob.session.ratchet.seen_remote_ratchets) > 1
 
 
 def test_responder_cannot_send_before_receiving(alice, bob):

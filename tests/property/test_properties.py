@@ -9,21 +9,18 @@ shrinks any counterexample to a minimal reproduction.
 import base64
 
 import pytest
-from hypothesis import HealthCheck, assume, given, settings
-from hypothesis import strategies as st
-
+from conftest import Party, wire
 from helo_ref.errors import (
     AuthenticationError,
-    InvalidEncodingError,
-    ReplayError,
     HeloError,
+    ReplayError,
     TooManySkippedMessagesError,
 )
 from helo_ref.message import Envelope
 from helo_ref.primitives import aes256gcm_decrypt, aes256gcm_encrypt
 from helo_ref.ratchet import expand_message_key, kdf_chain, kdf_root
-
-from conftest import Party, wire
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
 pytestmark = pytest.mark.property
 
