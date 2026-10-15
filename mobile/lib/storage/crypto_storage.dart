@@ -196,12 +196,30 @@ abstract final class StorageKeys {
   /// it lives here and never in the database it protects.
   static const String sessionStateKey = 'session.state_key';
 
+  /// This device's relay identifier (e.g. `device-3fa9c1d2e07b`). Not a secret,
+  /// but its presence is what marks the app as registered.
   static const String deviceId = 'device.id';
+  static const String username = 'account.username';
+
+  /// Relay bearer tokens. The account token authorises sending and prekey
+  /// fetches; the device token authorises reading this device's queue.
   static const String accessToken = 'auth.access_token';
+  static const String deviceToken = 'auth.device_token';
   static const String refreshToken = 'auth.refresh_token';
 
-  static String preKeyPrivate(int keyId) => 'prekey.one_time.$keyId';
-  static String signedPreKeyPrivate(int keyId) => 'prekey.signed.$keyId';
+  /// Every prekey private half plus the id counters, as one snapshot. One
+  /// value rather than one per key so a crash cannot persist half a rotation.
+  static const String preKeyState = 'prekey.state';
+
+  /// Which peer each persisted session belongs to. Holds no key material.
+  static const String conversationIndex = 'conversation.index';
+
+  /// Sealed ratchet state for one session (see Session.save).
+  static String session(String sessionId) => 'session.$sessionId';
+
+  /// Sealed message history for one session. Plaintext, so it is encrypted
+  /// under the session-state key before it reaches storage.
+  static String history(String sessionId) => 'history.$sessionId';
 }
 
 /// Key lifecycle operations that must be explicit and auditable.
@@ -212,6 +230,7 @@ class KeyLifecycle {
   /// Device logout: destroy auth material, RETAIN identity and sessions.
   Future<void> logout() async {
     await _storage.delete(StorageKeys.accessToken);
+    await _storage.delete(StorageKeys.deviceToken);
     await _storage.delete(StorageKeys.refreshToken);
   }
 

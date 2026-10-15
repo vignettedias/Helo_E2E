@@ -1,82 +1,82 @@
 {
   "disclaimer": "Reference Python implementation on a general-purpose machine. NOT mobile performance. Do not quote as such.",
   "environment": {
-    "python": "3.12.3",
-    "platform": "Linux-6.18.5-fc-v20-x86_64-with-glibc2.39",
-    "processor": "x86_64"
+    "python": "3.14.6",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 191 Stepping 2, GenuineIntel"
   },
   "timings": [
     {
       "operation": "identity_key_generation",
       "iterations": 200,
-      "mean_ms": 0.1905,
-      "median_ms": 0.1664,
-      "p95_ms": 0.3075,
-      "min_ms": 0.1589,
-      "max_ms": 0.3375
+      "mean_ms": 0.102,
+      "median_ms": 0.0997,
+      "p95_ms": 0.1114,
+      "min_ms": 0.0981,
+      "max_ms": 0.1283
     },
     {
       "operation": "signed_prekey_rotation",
       "iterations": 200,
-      "mean_ms": 0.1318,
-      "median_ms": 0.1234,
-      "p95_ms": 0.1835,
-      "min_ms": 0.119,
-      "max_ms": 0.2575
+      "mean_ms": 0.0767,
+      "median_ms": 0.0748,
+      "p95_ms": 0.0848,
+      "min_ms": 0.0724,
+      "max_ms": 0.1166
     },
     {
       "operation": "one_time_prekey_x100",
       "iterations": 20,
-      "mean_ms": 4.6866,
-      "median_ms": 4.5395,
-      "p95_ms": 4.9699,
-      "min_ms": 4.3956,
-      "max_ms": 6.4301
+      "mean_ms": 2.7482,
+      "median_ms": 2.739,
+      "p95_ms": 2.886,
+      "min_ms": 2.653,
+      "max_ms": 2.8883
     },
     {
       "operation": "x3dh_session_establishment_initiator",
       "iterations": 200,
-      "mean_ms": 0.8937,
-      "median_ms": 0.8491,
-      "p95_ms": 1.2464,
-      "min_ms": 0.7754,
-      "max_ms": 1.6885
+      "mean_ms": 0.4617,
+      "median_ms": 0.4539,
+      "p95_ms": 0.4979,
+      "min_ms": 0.4384,
+      "max_ms": 0.6435
     },
     {
       "operation": "prekey_bundle_verification",
       "iterations": 500,
-      "mean_ms": 0.292,
-      "median_ms": 0.2734,
-      "p95_ms": 0.4263,
-      "min_ms": 0.2506,
-      "max_ms": 0.9161
+      "mean_ms": 0.1447,
+      "median_ms": 0.1413,
+      "p95_ms": 0.1605,
+      "min_ms": 0.1361,
+      "max_ms": 0.3066
     },
     {
       "operation": "message_encrypt_256B",
       "iterations": 500,
-      "mean_ms": 0.0251,
-      "median_ms": 0.0232,
-      "p95_ms": 0.0326,
-      "min_ms": 0.0225,
-      "max_ms": 0.0855
+      "mean_ms": 0.0124,
+      "median_ms": 0.0121,
+      "p95_ms": 0.0134,
+      "min_ms": 0.0117,
+      "max_ms": 0.0187
     },
     {
       "operation": "encrypt_decrypt_roundtrip_256B",
       "iterations": 300,
-      "mean_ms": 1.147,
-      "median_ms": 1.0947,
-      "p95_ms": 1.3831,
-      "min_ms": 1.0074,
-      "max_ms": 1.9752
+      "mean_ms": 0.4101,
+      "median_ms": 0.399,
+      "p95_ms": 0.4703,
+      "min_ms": 0.3759,
+      "max_ms": 0.9229
     },
     {
       "operation": "dh_ratchet_step_pair",
       "iterations": 60,
-      "mean_ms": 5.792,
-      "median_ms": 5.6624,
-      "p95_ms": 6.3458,
-      "min_ms": 5.4087,
-      "max_ms": 8.6328
+      "mean_ms": 3.1849,
+      "median_ms": 3.1596,
+      "p95_ms": 3.3956,
+      "min_ms": 3.0491,
+      "max_ms": 3.4108
     }
   ],
   "ciphertext_expansion": [

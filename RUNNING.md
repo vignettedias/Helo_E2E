@@ -1,7 +1,8 @@
 # Running Helo
 
-Three things can be run independently. **Start with §1** — it verifies the
-cryptography without needing Docker, Flutter, or a network.
+Each part can be run independently. **Start with §1** — it verifies the
+cryptography without needing Docker, Flutter, or a network. **§4 is the
+quickest way to see the app itself.**
 
 ---
 
@@ -9,7 +10,7 @@ cryptography without needing Docker, Flutter, or a network.
 
 ```bash
 pip install cryptography pytest hypothesis
-python3 -m pytest -q                      # 98 tests
+python3 -m pytest -q                      # 99 tests
 python3 scripts/integration_e2e.py        # real relay + database inspection
 ```
 
@@ -26,8 +27,8 @@ scans the raw bytes for your plaintext and every private key. Requires Node 22+.
 ```bash
 pip install cryptography pytest hypothesis
 
-python3 -m pytest -q                       # all 98
-python3 -m pytest tests/unit -q            # 46
+python3 -m pytest -q                       # all 99
+python3 -m pytest tests/unit -q            # 47
 python3 -m pytest tests/adversarial -q     # 29 — active attacker
 python3 -m pytest tests/property -q        # 13 — Hypothesis
 python3 -m pytest tests/integration -q     # 10 — vector conformance
@@ -53,7 +54,7 @@ is nothing to install.
 
 ```bash
 cd backend
-node --test test/relay.test.js      # 22 tests
+node --test test/relay.test.js      # 25 tests
 ```
 
 Run it:
@@ -69,6 +70,18 @@ curl -s localhost:8443/health
 ```
 
 The relay speaks **plain HTTP by design** — terminate TLS in front of it.
+
+**Browser clients and CORS.** CORS is off by default; native apps do not need
+it. To let a browser build of the client call the relay, allowlist its exact
+origins (no wildcard — a literal `*` is ignored):
+
+```bash
+CORS_ORIGINS=http://localhost:5000,http://localhost:5001 node src/server.js
+```
+
+CORS is not a security boundary here — authentication is a bearer token, never
+a cookie — but the allowlist still keeps arbitrary sites from scripting the
+relay with a token they somehow obtained.
 
 ### Try it by hand
 
@@ -119,24 +132,68 @@ Exit code 0 means all 24 checks passed.
 
 ---
 
-## 4. Flutter client
+## 4. Web demo
 
-> **Not verified.** This code has never been executed — the environment it was
-> written in had no Dart toolchain. `flutter test` is what establishes
-> conformance. Treat it as unverified until you run it.
+**Requires:** Flutter 3.22+, Python 3.11+, Node 22.5+. No Android SDK, Xcode or
+Visual Studio needed — the client runs in the browser.
+
+```bash
+cd mobile && flutter build web && cd ..
+python3 scripts/run_demo.py --fresh
+```
+
+`run_demo.py` starts the real relay (with a CORS allowlist for exactly the demo
+origins) and serves the web build on two ports:
+
+| Tab | URL |
+|---|---|
+| Alice | http://localhost:5000 |
+| Bob | http://localhost:5001 |
+
+Each port is a separate browser origin, so each tab has its own key storage —
+two genuinely different devices in one browser. Then:
+
+1. Create an account in each tab (password 12+ characters).
+2. Copy Bob's device id from his identity card (copy button), and in Alice's
+   tab tap **New chat** and paste it. Bob does not need to be online.
+3. Message back and forth. Reload either tab: identity, sessions and history
+   are restored from encrypted storage.
+4. Open **Verify** in both tabs: the 60-digit safety numbers match.
+
+Options: `--build` runs `flutter build web` first, `--lan` also listens on the
+network so a phone on the same Wi-Fi can open the printed URL, `--ports`
+changes or adds ports. `--fresh` empties the relay database; clear the tabs'
+site data as well, or they will hold identities the new relay has never seen
+(the app then tells you to reset the device from **Security**).
+
+The web build stores keys via `flutter_secure_storage`'s browser backend —
+encrypted under a WebCrypto key kept in the same browser. That is fine for a
+demo and much weaker than a phone keystore; see README → Known limitations.
+
+---
+
+## 5. Flutter client
 
 **Requires:** Flutter 3.22+
 
 ```bash
 cd mobile
 flutter pub get
-flutter test          # includes vector conformance against the Python reference
+flutter test          # 28 tests: vector conformance + SessionManager behaviour
 flutter analyze
 ```
 
 `test/vector_conformance_test.dart` replays the same vectors the Python
 reference generates. If a single derived byte differs, it fails. That is the
 mechanism that makes the port verifiable rather than merely plausible.
+`test/session_manager_test.dart` drives the real `SessionManager` and
+`RelayClient` against an in-memory relay double: restarts on both sides, token
+expiry, a send that fails mid-flight, and a forged first message.
+
+Platform projects for Android, iOS, web and Windows are generated. Building for
+Android needs the Android SDK; Windows desktop needs Visual Studio with the
+"Desktop development with C++" workload and Windows Developer Mode (plugins
+are linked by symlink).
 
 Run the app against a local relay:
 
@@ -151,9 +208,12 @@ flutter run --dart-define=HELO_RELAY_URL=http://localhost:8443
 flutter run --dart-define=HELO_RELAY_URL=http://192.168.1.50:8443
 ```
 
+Without `--dart-define`, the app picks a default: `10.0.2.2` on Android, the
+page's own host on the web, `localhost` elsewhere.
+
 **Two devices, one relay:** run the relay on your machine, launch the app on two
-emulators or devices, create two accounts. Each shows its device id in
-**Diagnostics** — paste one into the other's "New conversation" dialog.
+emulators or devices, create two accounts. Each shows its device id on the
+conversation list — copy one into the other's **New chat** dialog.
 
 Note the app never asks for a contact's key. It fetches the prekey bundle from
 the relay and verifies the signatures itself; a relay that substitutes keys is
@@ -161,7 +221,7 @@ rejected before any private key is touched.
 
 ---
 
-## 5. Deployment (Docker)
+## 6. Deployment (Docker)
 
 **Requires:** Docker with Compose v2, and a domain pointing at the host.
 
@@ -192,6 +252,10 @@ terminator still sees only ciphertext.
 | Flutter: vector file missing | Run `python3 scripts/generate_test_vectors.py` first |
 | App can't reach relay | Emulator needs `10.0.2.2`, not `localhost` |
 | Relay returns 429 | Rate limiting working as intended; wait |
+| Web demo: "too many attempts" on sign-up | Registration allows 3 per hour per IP; restart `run_demo.py` (limits are in memory) |
+| Web demo: "Could not reach the relay" | Relay not running, or the page origin is not in `CORS_ORIGINS` |
+| Web demo: "relay no longer recognises this device" | Relay database was reset; use **Security → Reset** in that tab |
+| Web demo: both tabs are the same user | Same origin — use different ports (5000 / 5001), not two tabs of one URL |
 
 ---
 

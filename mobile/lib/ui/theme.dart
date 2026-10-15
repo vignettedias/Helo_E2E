@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 
 abstract final class HeloColors {
+  static const Color backdrop = Color(0xFF060809); // outside the app column
   static const Color background = Color(0xFF0A0D10);
   static const Color surface = Color(0xFF12171C);
   static const Color surfaceRaised = Color(0xFF1A2128);

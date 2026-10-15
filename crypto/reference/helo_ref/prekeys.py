@@ -20,9 +20,9 @@ over: a relay CAN force OPK omission, and the client surfaces it.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from .encoding import b64d, b64e, lp, u8, u32
+from .encoding import b64d, b64e, lp, u32
 from .errors import InvalidEncodingError, PreKeyUnavailableError
 from .identity import IdentityKeyPair, IdentityPublic
 from .primitives import (
@@ -84,7 +84,7 @@ class SignedPreKeyPublic:
         }
 
     @staticmethod
-    def from_json(obj: dict) -> "SignedPreKeyPublic":
+    def from_json(obj: dict) -> SignedPreKeyPublic:
         try:
             return SignedPreKeyPublic(
                 key_id=int(obj["key_id"]),
@@ -105,7 +105,7 @@ class OneTimePreKeyPublic:
         return {"key_id": self.key_id, "public": b64e(self.public)}
 
     @staticmethod
-    def from_json(obj: dict) -> "OneTimePreKeyPublic":
+    def from_json(obj: dict) -> OneTimePreKeyPublic:
         try:
             return OneTimePreKeyPublic(
                 key_id=int(obj["key_id"]),
@@ -154,7 +154,7 @@ class PreKeyBundle:
         }
 
     @staticmethod
-    def from_json(obj: dict) -> "PreKeyBundle":
+    def from_json(obj: dict) -> PreKeyBundle:
         try:
             otp = obj.get("one_time_prekey")
             return PreKeyBundle(

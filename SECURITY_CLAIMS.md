@@ -9,8 +9,10 @@ test, it is not claimed.* Properties that are architecturally intended but not
 yet demonstrated appear in [§3 Not Yet Claimed](#3-not-yet-claimed), not in the
 claims table.
 
-Current status: **98 tests passing** (46 unit, 29 adversarial, 13 property-based,
-10 integration/vector-conformance) against the reference implementation.
+Current status: **99 tests passing** (47 unit, 29 adversarial, 13 property-based,
+10 integration/vector-conformance) against the reference implementation. The
+Dart client passes 22 vector-conformance tests against the same vectors, plus
+6 SessionManager tests (`mobile/test/`).
 
 ```
 Reproduce:  python3 -m pytest -q

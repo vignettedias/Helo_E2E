@@ -101,13 +101,15 @@ lands in a real database first.
 
 | Suite | Count | Status |
 |---|---|---|
-| Unit (protocol) | 37 | pass |
+| Unit (protocol) | 38 | pass |
 | Unit (security properties) | 9 | pass |
 | Adversarial | 29 | pass |
 | Property-based (Hypothesis) | 13 | pass |
 | Integration / vector conformance | 10 | pass |
-| Relay backend | 22 | pass |
-| Cross-stack end-to-end | 25 checks | pass |
+| Relay backend | 25 | pass |
+| Cross-stack end-to-end | 24 checks | pass |
+| Dart vector conformance | 22 | pass |
+| Dart SessionManager (restart, expiry, crash-before-send, forgery) | 6 | pass |
 
 Measured: ciphertext expansion is a **constant 57 bytes** (16-byte tag +
 41-byte header) from 0 B to 16 KB. Timing figures are in
@@ -128,6 +130,24 @@ Recorded because a methodology's value is measured by what it catches:
    instead of HTTP 413, indistinguishable from server failure.
 4. **Infinite recursion in the Dart PQXDH seam** — a method shadowing the
    top-level function it was meant to delegate to.
+5. **Dart safety number ordered by base64 text, not bytes** — found when the
+   Dart suite was first executed and the vectors re-examined. The base64
+   alphabet is not in ASCII order, so the port disagreed with the reference for
+   roughly a third of identity pairs while agreeing with itself — exactly the
+   "healthy in isolation" failure the vectors exist for. The original pinned
+   pair happened to sort the same both ways, so a vector was added that cannot.
+6. **Ratchet state persisted after sending** — the client saved session state
+   only after the envelope left the device. A crash in between would roll the
+   ratchet back and reuse a message key, and with it the derived AES-GCM nonce,
+   for different plaintext. Now persisted before sending, with a regression
+   test that fails a send mid-flight and restarts.
+7. **Unanswered session lost its X3DH header on restart** — the pending
+   initial-message header was not part of persisted session state (in the
+   reference *and* the port), so a session opened but not yet used before a
+   restart could never be established by the peer.
+8. **Client restart was broken outright** — the device token was stored under
+   the device-id key, and prekeys, tokens and sessions were never reloaded.
+   Found only by actually running the app across a restart.
 
 Defect 2 is the most instructive: a correctness bug *masked by a security
 feature*. Only a test that drove the whole stack and checked ordering directly
@@ -139,10 +159,10 @@ could surface it.
 - **Vectors are self-generated.** They prove internal consistency and
   reproducibility, not conformance to Signal's published specification.
   Interoperability with libsignal is not claimed or tested.
-- **The Dart port is unverified at the time of writing.** It has not been
-  executed; `flutter test` must be run to establish conformance. Presenting it
-  as verified would be exactly the kind of unbacked claim this methodology
-  exists to prevent.
+- **The Dart port is verified against the vectors and in the browser, not on
+  phones.** `flutter test` passes and the web build has been driven end to end
+  against the real relay; the Android and iOS builds have not been compiled,
+  and platform keystores have not been exercised.
 - **Semi-formal verification only.** An enforced state machine with rejected
   invalid transitions; no ProVerif or Tamarin model.
 - **Mobile performance unmeasured.** No mobile figure is claimed.

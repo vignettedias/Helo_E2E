@@ -39,15 +39,15 @@ is the exact failure mode this design is meant to avoid.
 |---|---|---|
 | 1 | Repository & architecture | ✅ Complete |
 | 2 | Cryptographic abstraction layer | ✅ Complete |
-| 3 | Identity keys & secure storage | ✅ Complete (Dart storage unverified) |
+| 3 | Identity keys & secure storage | ✅ Complete (in-memory storage tested; platform keystores not exercised) |
 | 4 | Prekey infrastructure | ✅ Complete |
 | 5 | X3DH session establishment | ✅ Complete |
 | 6 | Double Ratchet | ✅ Complete |
 | 7 | Message encryption | ✅ Complete |
-| 8 | Relay backend | ✅ Complete — 22 tests, zero dependencies |
-| 9 | Flutter client | ✅ Crypto, storage, relay client, UI (unverified) |
-| 10 | Identity verification | ✅ Protocol, safety numbers, QR + warning UI |
-| 11–13 | Security, adversarial, property testing | ✅ 98 tests passing |
+| 8 | Relay backend | ✅ Complete — 25 tests, zero dependencies |
+| 9 | Flutter client | ✅ Crypto, storage, relay client, UI — runs in the browser |
+| 10 | Identity verification | ✅ Protocol, safety numbers, QR display + warning UI |
+| 11–13 | Security, adversarial, property testing | ✅ 99 tests passing |
 | 14 | Documentation | ✅ Complete |
 | 15 | CI/CD & deployment | ✅ Complete — CI, Docker, TLS |
 
@@ -55,20 +55,26 @@ is the exact failure mode this design is meant to avoid.
 
 | Component | Executed & verified here? |
 |---|---|
-| Python reference implementation | ✅ 98 tests run and passing |
-| Relay backend | ✅ 22 tests run and passing |
-| Cross-stack end-to-end | ✅ 25 checks run and passing |
+| Python reference implementation | ✅ 99 tests run and passing |
+| Relay backend | ✅ 25 tests run and passing |
+| Cross-stack end-to-end | ✅ 24 checks run and passing |
 | Test vectors | ✅ reproduce byte-exactly |
-| **Dart client crypto** | ❌ **not executed — no Dart toolchain available** |
+| Dart client crypto | ✅ 22 vector-conformance tests passing (Flutter 3.47 / Dart 3.13) |
+| Dart client session layer | ✅ 6 tests: restarts, token expiry, crash-before-send, forged first message |
+| Web client against the real relay | ✅ exercised by hand: two users, restart, ratchet, verification |
+| Android / iOS builds | ⚠️ platform projects generated, not built (no Android SDK or macOS here) |
 
-The Dart port is written to be *verifiable*, not asserted correct: run
-`flutter test` and `test/vector_conformance_test.dart` replays the same vectors
-the Python reference generates. If a single derived byte differs, it fails.
-Until that is run, treat the port as unverified.
+The Dart port is *verifiable*, not asserted correct: `flutter test` replays the
+vectors the Python reference generates, and a single differing byte fails it.
+Running it caught a real defect the original vectors could not: the Dart safety
+number ordered fingerprints by their **base64 text** rather than their bytes,
+which disagrees with the reference for roughly a third of identity pairs. A
+vector chosen to sort differently under the two rules now pins the behaviour
+(`safety_number_ordering` in the vector file).
 
 **What exists today**: a verified cryptographic core, a working untrusted
-relay, a full Flutter client, complete documentation and threat modelling, CI,
-and containerised deployment.
+relay, a Flutter client that runs in the browser against that relay, complete
+documentation and threat modelling, CI, and containerised deployment.
 
 **How to run any of it: [RUNNING.md](RUNNING.md).**
 
@@ -197,25 +203,28 @@ helo/
 │       ├── secure_log.py       allowlist-based redacting logger
 │       └── errors.py           fail-closed error taxonomy
 ├── tests/
-│   ├── unit/                   46 tests
+│   ├── unit/                   47 tests
 │   ├── adversarial/            29 tests
 │   ├── property/               13 tests (Hypothesis)
 │   ├── integration/            10 tests
 │   └── vectors/                deterministic cross-implementation vectors
 ├── scripts/
 │   ├── generate_test_vectors.py
+│   ├── integration_e2e.py      real relay + real client + database inspection
+│   ├── run_demo.py             relay + web client for a local two-user demo
 │   └── benchmark.py
 ├── docs/benchmarks/
 ├── backend/                    relay — ZERO npm dependencies
 │   ├── src/{db,auth,validate,ratelimit,log,server}.js
-│   └── test/relay.test.js      22 tests
+│   └── test/relay.test.js      25 tests
 ├── mobile/                     Flutter client
 │   ├── lib/crypto/             Dart port of the reference
 │   ├── lib/storage/            CryptoStorage (Keystore / Keychain)
 │   ├── lib/data/               relay client (moves ciphertext only)
 │   ├── lib/domain/             SessionManager — the plaintext boundary
 │   ├── lib/ui/                 screens and security-state widgets
-│   └── test/                   vector conformance
+│   ├── android/ ios/ web/ windows/   generated platform projects
+│   └── test/                   vector conformance + SessionManager tests
 ├── docker/                     hardened deployment + TLS
 └── .github/workflows/ci.yml    CI with security gates
 ```
@@ -238,12 +247,12 @@ pip install cryptography pytest hypothesis
 ## Testing
 
 ```bash
-python3 -m pytest -q                      # 98 protocol tests
+python3 -m pytest -q                      # 99 protocol tests
 python3 -m pytest tests/adversarial -q    # active-attacker tests
 python3 -m pytest tests/property -q       # property-based tests
 
-cd backend && node --test test/           # 22 relay tests, zero deps
-cd mobile  && flutter test                # Dart conformance (needs Flutter)
+cd backend && node --test test/relay.test.js   # 25 relay tests, zero deps
+cd mobile  && flutter test                     # 28 Dart tests incl. vector conformance
 ```
 
 ## Security testing
@@ -258,6 +267,18 @@ python3 scripts/benchmark.py                       # measured performance
 `integration_e2e.py` is the one to run if you only run one: it starts the real
 relay, drives it with the real client over HTTP, then opens the relay's SQLite
 file and scans the raw bytes for plaintext and key material.
+
+## Web demo
+
+```bash
+cd mobile && flutter build web && cd ..
+python3 scripts/run_demo.py --fresh
+```
+
+Starts the relay and serves the Flutter web client on two ports — open
+`http://localhost:5000` (Alice) and `http://localhost:5001` (Bob). Each port is
+a separate browser origin with its own key storage, so the two tabs are
+genuinely different devices. Details in [RUNNING.md](RUNNING.md#4-web-demo).
 
 ## Deployment
 
@@ -317,9 +338,17 @@ matter most:
   *wrapping* key is hardware-backed; the identity keys themselves are encrypted
   at rest but must exist in process memory to perform a DH. Spelled out
   precisely in `mobile/lib/storage/crypto_storage.dart`.
-- **The Flutter client has never been executed.** It was written in an
-  environment with no Dart toolchain. Run `flutter test` to verify it against
-  the reference vectors before trusting it.
+- **The Flutter client is verified in the browser, not on phones.** Its crypto
+  passes the reference vectors and it has run end to end against the real
+  relay as a web app. The Android and iOS builds have not been compiled, and
+  on the web, `flutter_secure_storage` keeps keys in browser storage under a
+  WebCrypto key — far weaker than a hardware keystore. The web build is a
+  demonstration client, not a recommended way to hold real keys.
+- **QR verification is display-only.** The app renders the verification QR
+  code but cannot scan one; compare the 60-digit numbers instead.
+- **A peer who resets their identity cannot be re-adopted in place.** The
+  conversation is flagged *identity changed* and stays blocked; there is no
+  "accept new key" flow yet.
 - **Interoperability with Signal is not claimed** and has not been tested.
 
 ---

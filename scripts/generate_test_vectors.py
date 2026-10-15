@@ -34,24 +34,20 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "crypto" / "reference"))
 
+from helo_ref import x3dh
 from helo_ref.encoding import b64e
 from helo_ref.identity import (
-    IDENTITY_BINDING_CONTEXT,
     IdentityKeyPair,
+    qr_payload,
     safety_number,
 )
-from helo_ref.message import Envelope
 from helo_ref.prekeys import PreKeyStore
 from helo_ref.primitives import (
     aes256gcm_encrypt,
-    ed25519_sign,
     hkdf,
-    x25519_dh,
-    x25519_from_private,
 )
 from helo_ref.ratchet import expand_message_key, kdf_chain, kdf_root
 from helo_ref.session import start_as_initiator, start_as_responder
-from helo_ref import x3dh
 
 DEFAULT_SEED = b"Helo test vector seed v1 -- NOT FOR PRODUCTION USE"
 
@@ -317,6 +313,39 @@ def vectors_out_of_order(drbg: TestOnlyDRBG) -> dict:
     }
 
 
+def vectors_safety_number_ordering(drbg: TestOnlyDRBG) -> dict:
+    """A pair whose fingerprints sort DIFFERENTLY as bytes than as base64.
+
+    The safety number orders the two fingerprints before hashing, and the
+    reference orders raw bytes. The base64 alphabet is not in ASCII order, so
+    an implementation that compares base64 strings agrees with the reference
+    on some pairs and silently disagrees on others (about a third). The
+    pinned pair in the x3dh group happens to sort the same both ways, so it
+    could never catch that; this pair is chosen so it must.
+    """
+    for _ in range(64):
+        a = IdentityKeyPair.generate(drbg).public()
+        b = IdentityKeyPair.generate(drbg).public()
+        fa, fb = a.fingerprint(), b.fingerprint()
+        if (fa < fb) != (b64e(fa) < b64e(fb)):
+            break
+    else:  # pragma: no cover - probability ~ (2/3)^64
+        raise RuntimeError("no order-inverting identity pair found")
+    return {
+        "description": (
+            "Identity pair whose fingerprints order differently as raw bytes "
+            "than as base64 text. The safety number must follow byte order."
+        ),
+        "identity_a": a.to_json(),
+        "identity_b": b.to_json(),
+        "fingerprint_a": b64e(fa),
+        "fingerprint_b": b64e(fb),
+        "a_sorts_first_by_bytes": fa < fb,
+        "safety_number": safety_number(a, b),
+        "qr_payload_a_to_b": qr_payload(a, b),
+    }
+
+
 def build(seed: bytes) -> dict:
     return {
         "format_version": 1,
@@ -331,6 +360,9 @@ def build(seed: bytes) -> dict:
         "x3dh": vectors_x3dh(TestOnlyDRBG(seed + b"|x3dh")),
         "double_ratchet": vectors_double_ratchet(TestOnlyDRBG(seed + b"|dr")),
         "out_of_order": vectors_out_of_order(TestOnlyDRBG(seed + b"|ooo")),
+        "safety_number_ordering": vectors_safety_number_ordering(
+            TestOnlyDRBG(seed + b"|sn-order")
+        ),
     }
 
 

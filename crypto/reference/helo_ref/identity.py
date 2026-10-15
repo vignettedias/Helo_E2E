@@ -96,7 +96,7 @@ class IdentityPublic:
         }
 
     @staticmethod
-    def from_json(obj: dict) -> "IdentityPublic":
+    def from_json(obj: dict) -> IdentityPublic:
         try:
             return IdentityPublic(
                 sig_pub=b64d(obj["sig_pub"], expect_len=ED25519_PUB_LEN),
@@ -123,7 +123,7 @@ class IdentityKeyPair:
     binding_sig: bytes
 
     @staticmethod
-    def generate(rng: RandomSource = DEFAULT_RANDOM) -> "IdentityKeyPair":
+    def generate(rng: RandomSource = DEFAULT_RANDOM) -> IdentityKeyPair:
         sig_seed, sig_pub = ed25519_generate(rng)
         dh_priv, dh_pub = x25519_generate(rng)
         binding_sig = ed25519_sign(sig_seed, IDENTITY_BINDING_CONTEXT + dh_pub)

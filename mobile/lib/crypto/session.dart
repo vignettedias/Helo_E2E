@@ -224,6 +224,10 @@ class Session {
       'state': state.wire,
       'verification': verification.wire,
       'used_one_time_prekey': usedOneTimePreKey,
+      // Kept until the peer replies. Without it, a session started but not yet
+      // used before a restart would send its first message with no X3DH header,
+      // and the peer could never establish its side.
+      'pending_x3dh': pendingX3dh?.toJson(),
       'ratchet': <String, Object?>{
         'root_key': b64e(r.rootKey),
         'dh_send_priv': b64e(r.dhSendPriv),
@@ -374,6 +378,10 @@ class Session {
         verification:
             VerificationStatus.fromWire(decoded['verification']! as String),
         usedOneTimePreKey: decoded['used_one_time_prekey']! as bool,
+        pendingX3dh: decoded['pending_x3dh'] is Map<String, dynamic>
+            ? InitialMessageHeader.fromJson(
+                decoded['pending_x3dh']! as Map<String, dynamic>)
+            : null,
       );
     } on SessionStateCorruptError {
       rethrow;

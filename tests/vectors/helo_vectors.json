@@ -353,6 +353,24 @@
     }
   },
   "protocol": "Helo/1 X3DH-Curve25519-SHA256 + DoubleRatchet + AES-256-GCM",
+  "safety_number_ordering": {
+    "a_sorts_first_by_bytes": false,
+    "description": "Identity pair whose fingerprints order differently as raw bytes than as base64 text. The safety number must follow byte order.",
+    "fingerprint_a": "5TYnEVp/xeNKyWVny/yuMnPNY+mV8N7nGxLp+C/g40E=",
+    "fingerprint_b": "QcIoBTuJowgf4Ez3AJVOojkYbYyQerFP7prs6RWciH4=",
+    "identity_a": {
+      "binding_sig": "CNV1TLuap4zv3kvJ5eYToJ8g6xlYNG5+MCiZyE1WbHyBN1jgj5gjrU12VMqkwxAxUzyxXef2IQoj9LDcnpywBA==",
+      "dh_pub": "P7g8sWbMUVzKphThDMICl0qiyMcZ28IUPM7CfrKBtCo=",
+      "sig_pub": "OBxlYoA+jHXp4sdqYoJMoFZ2t8XzKNTH7WdneVgr+2k="
+    },
+    "identity_b": {
+      "binding_sig": "mbzAOgtXYI6xSAfSS8coxajtjA2L2bZ3qqM+VhQq4qhqPb7M1R3Ozmhze7rUinpTFlWnNoVn9JfhnGUEog8TCg==",
+      "dh_pub": "/n6tBYk8IRd7/PcP7JloEjYWXMgHDAkgEESPEBUksEM=",
+      "sig_pub": "EOfDA13sQkQLZV6dly3qc5BfIk/0KIyW5mjeBACcgec="
+    },
+    "qr_payload_a_to_b": "helo:v1:AQAgOBxlYoA+jHXp4sdqYoJMoFZ2t8XzKNTH7WdneVgr+2kAID+4PLFmzFFcyqYU4QzCApdKosjHGdvCFDzOwn6ygbQq:AQAgEOfDA13sQkQLZV6dly3qc5BfIk/0KIyW5mjeBACcgecAIP5+rQWJPCEXe/z3D+yZaBI2FlzIBwwJIBBEjxAVJLBD",
+    "safety_number": "30201 41770 20934 20476 57773 26282 38096 63431 01760 52255 33237 05734"
+  },
   "seed": "Helo test vector seed v1 -- NOT FOR PRODUCTION USE",
   "warning": "Private keys in this file are DERIVED FROM A FIXED TEST SEED and are PUBLIC BY DESIGN. They must never be used for anything real.",
   "x3dh": {

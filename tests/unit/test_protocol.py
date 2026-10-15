@@ -278,6 +278,27 @@ def test_skipped_keys_survive_persistence(established):
     assert reloaded.decrypt(wire(m1)) == b"s1"
 
 
+def test_unanswered_session_keeps_its_x3dh_header_across_persistence(alice, bob):
+    # Regression: the pending X3DH header was not persisted. A session started
+    # but not yet used before a restart then sent its first message as a
+    # "normal" envelope, which the responder can never establish a session from.
+    storage_key = bytes([0x88]) * 32
+    alice.start_with(bob)
+    blob = alice.session.save(storage_key)
+    alice.session = Session.load(blob, storage_key, alice.session.session_id)
+
+    first = alice.send(b"first message after restart")
+    assert first.x3dh is not None
+    bob.accept(first)
+    assert bob.recv(first) == b"first message after restart"
+
+    # Once the peer has replied, the header is no longer carried or stored.
+    assert alice.recv(bob.send(b"ack")) == b"ack"
+    reloaded = Session.load(
+        alice.session.save(storage_key), storage_key, alice.session.session_id)
+    assert reloaded.pending_x3dh is None
+
+
 def test_persisted_blob_contains_no_recognisable_key_material(established):
     alice, bob = established
     blob = bob.session.save(b"\x77" * 32)

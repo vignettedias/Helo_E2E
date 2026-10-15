@@ -196,7 +196,7 @@ def validate_ed25519_public(pub: bytes) -> bytes:
         )
     try:
         Ed25519PublicKey.from_public_bytes(pub)
-    except Exception as exc:  # noqa: BLE001 - library raises broad types
+    except Exception as exc:
         raise InvalidKeyError("Ed25519 public key is not a valid point") from exc
     return pub
 

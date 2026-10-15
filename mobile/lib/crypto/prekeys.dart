@@ -258,22 +258,81 @@ class PreKeyStore {
     return record.privateKey;
   }
 
-  /// Import persisted prekey material after a restart.
-  void restore({
-    required Iterable<PreKeyPrivate> signed,
-    required Iterable<PreKeyPrivate> oneTime,
-    required Map<int, SignedPreKeyPublic> signedPublic,
-    required int currentSignedId,
+  /// Snapshot of every prekey private half, for secure storage ONLY.
+  ///
+  /// The id counters are persisted explicitly rather than recomputed from the
+  /// surviving keys. Recomputing would reuse the id of a consumed key whose
+  /// public half the relay still holds, and the relay keeps the FIRST public
+  /// key it saw for an id — so the device would end up holding a private key
+  /// that matches nothing the relay serves.
+  Map<String, Object?> toStorageJson() {
+    Map<String, Object?> priv(PreKeyPrivate p) => <String, Object?>{
+          'key_id': p.keyId,
+          'private': b64e(p.privateKey),
+          'public': b64e(p.publicKey),
+          'created_at': p.createdAt,
+        };
+    return <String, Object?>{
+      'v': 1,
+      'current_signed_id': _currentSignedId,
+      'next_signed_id': _nextSignedId,
+      'next_one_time_id': _nextOneTimeId,
+      'signed': _signed.values
+          .map((PreKeyPrivate p) => <String, Object?>{
+                ...priv(p),
+                'signature': b64e(_signedPublic[p.keyId]!.signature),
+              })
+          .toList(),
+      'one_time': _oneTime.values.map(priv).toList(),
+    };
+  }
+
+  /// Rebuild a store from [toStorageJson] output. Fails closed: malformed
+  /// state raises rather than yielding a store with silently missing keys.
+  static PreKeyStore fromStorageJson(
+    IdentityKeyPair identity,
+    Map<String, dynamic> obj, {
+    RandomSource? rng,
+    int Function()? clock,
   }) {
-    for (final PreKeyPrivate p in signed) {
-      _signed[p.keyId] = p;
-      _nextSignedId = _nextSignedId > p.keyId ? _nextSignedId : p.keyId + 1;
+    final PreKeyStore store = PreKeyStore(identity, rng: rng, clock: clock);
+    try {
+      if (obj['v'] != 1) {
+        throw const SessionStateCorruptError('unsupported prekey state');
+      }
+      PreKeyPrivate priv(Map<String, dynamic> e) => PreKeyPrivate(
+            e['key_id']! as int,
+            b64d(e['private']! as String, expectLen: x25519KeyLen),
+            b64d(e['public']! as String, expectLen: x25519KeyLen),
+            e['created_at']! as int,
+          );
+      for (final Object? raw in obj['signed']! as List<Object?>) {
+        final Map<String, dynamic> e = raw! as Map<String, dynamic>;
+        final PreKeyPrivate p = priv(e);
+        store._signed[p.keyId] = p;
+        store._signedPublic[p.keyId] = SignedPreKeyPublic(
+          keyId: p.keyId,
+          publicKey: p.publicKey,
+          signature: b64d(e['signature']! as String, expectLen: ed25519SigLen),
+          createdAt: p.createdAt,
+        );
+      }
+      for (final Object? raw in obj['one_time']! as List<Object?>) {
+        final PreKeyPrivate p = priv(raw! as Map<String, dynamic>);
+        store._oneTime[p.keyId] = p;
+      }
+      store._currentSignedId = obj['current_signed_id'] as int?;
+      store._nextSignedId = obj['next_signed_id']! as int;
+      store._nextOneTimeId = obj['next_one_time_id']! as int;
+    } on SessionStateCorruptError {
+      rethrow;
+    } catch (_) {
+      throw const SessionStateCorruptError('stored prekey state is malformed');
     }
-    for (final PreKeyPrivate p in oneTime) {
-      _oneTime[p.keyId] = p;
-      _nextOneTimeId = _nextOneTimeId > p.keyId ? _nextOneTimeId : p.keyId + 1;
+    if (store._currentSignedId != null &&
+        !store._signed.containsKey(store._currentSignedId)) {
+      throw const SessionStateCorruptError('current signed prekey is missing');
     }
-    _signedPublic.addAll(signedPublic);
-    _currentSignedId = currentSignedId;
+    return store;
   }
 }

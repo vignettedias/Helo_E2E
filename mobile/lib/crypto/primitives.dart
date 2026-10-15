@@ -167,7 +167,7 @@ String _hex(List<int> bytes) {
 
 Uint8List validateX25519Public(List<int> pub) {
   if (pub.length != x25519KeyLen) {
-    throw InvalidKeyError('X25519 public key must be $x25519KeyLen bytes');
+    throw const InvalidKeyError('X25519 public key must be $x25519KeyLen bytes');
   }
   if (_smallOrderX25519.contains(_hex(pub))) {
     throw const InvalidKeyError('X25519 public key is a low-order point');
@@ -177,7 +177,7 @@ Uint8List validateX25519Public(List<int> pub) {
 
 Uint8List validateEd25519Public(List<int> pub) {
   if (pub.length != ed25519PubLen) {
-    throw InvalidKeyError('Ed25519 public key must be $ed25519PubLen bytes');
+    throw const InvalidKeyError('Ed25519 public key must be $ed25519PubLen bytes');
   }
   return Uint8List.fromList(pub);
 }

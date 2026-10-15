@@ -55,7 +55,7 @@ from .primitives import (
 from .ratchet import RatchetState, init_initiator, init_responder
 from .ratchet import decrypt as ratchet_decrypt
 from .ratchet import encrypt as ratchet_encrypt
-from .x3dh import ClassicalX3DH, X3DHResult
+from .x3dh import ClassicalX3DH, InitialMessageHeader, X3DHResult
 
 # Module-level singleton. Constructing this inside a default argument builds the
 # instance once at import time and shares it implicitly -- the mutable-default
@@ -116,7 +116,7 @@ class Session:
     state: SessionState = SessionState.SESSION_ESTABLISHED
     verification: VerificationStatus = VerificationStatus.UNVERIFIED
     # Alice repeats the X3DH header until Bob demonstrably has the session.
-    pending_x3dh: object | None = None
+    pending_x3dh: InitialMessageHeader | None = None
     used_one_time_prekey: bool = True
 
     # -- state machine ------------------------------------------------------
@@ -229,6 +229,10 @@ class Session:
             "state": self.state.value,
             "verification": self.verification.value,
             "used_one_time_prekey": self.used_one_time_prekey,
+            # Kept until the peer replies. Without it, a session started but not
+            # yet used before a restart would send its first message with no
+            # X3DH header, and the peer could never establish its side.
+            "pending_x3dh": self.pending_x3dh.to_json() if self.pending_x3dh else None,
             "ratchet": {
                 "root_key": b64e(r.root_key),
                 "dh_send_priv": b64e(r.dh_send_priv),
@@ -320,6 +324,11 @@ class Session:
                 state=SessionState(obj["state"]),
                 verification=VerificationStatus(obj["verification"]),
                 used_one_time_prekey=bool(obj["used_one_time_prekey"]),
+                pending_x3dh=(
+                    InitialMessageHeader.from_json(obj["pending_x3dh"])
+                    if obj.get("pending_x3dh")
+                    else None
+                ),
             )
         except SessionStateCorruptError:
             raise

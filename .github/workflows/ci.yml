@@ -259,3 +259,9 @@ jobs:
         # fails -- which is the entire purpose of the vector file.
         working-directory: mobile
         run: flutter test
+
+      - name: Web client compiles
+        # The browser build is the demo client (scripts/run_demo.py). Building
+        # it catches web-only breakage such as a dart:io import in lib/.
+        working-directory: mobile
+        run: flutter build web --release

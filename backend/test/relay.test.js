@@ -10,7 +10,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer } = require('../src/server');
+const { createServer, parseCorsOrigins } = require('../src/server');
 const { RateLimiter } = require('../src/ratelimit');
 
 // --------------------------------------------------------------- test client
@@ -21,8 +21,8 @@ async function start(options = {}) {
   const { port } = server.address();
   const base = `http://127.0.0.1:${port}`;
 
-  const call = async (method, path, { body, token } = {}) => {
-    const headers = { 'Content-Type': 'application/json' };
+  const call = async (method, path, { body, token, headers: extra } = {}) => {
+    const headers = { 'Content-Type': 'application/json', ...extra };
     if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(base + path, {
       method,
@@ -470,4 +470,51 @@ test('queue preserves strict FIFO order within the same second', async (t) => {
   const fetched = await c.call('GET', '/messages', { token: bobDevice });
   const order = fetched.body.messages.map((m) => m.message_id);
   assert.deepStrictEqual(order, sent, 'queue must deliver in strict send order');
+});
+
+// ------------------------------------------------------------------ CORS
+
+test('CORS is off by default: no browser origin is granted access', async (t) => {
+  const c = await start();
+  t.after(() => c.close());
+  const origin = { Origin: 'http://localhost:5000' };
+
+  const preflight = await c.call('OPTIONS', '/auth/login', { headers: origin });
+  assert.strictEqual(preflight.status, 404);
+  assert.strictEqual(preflight.headers.get('access-control-allow-origin'), null);
+
+  const health = await c.call('GET', '/health', { headers: origin });
+  assert.strictEqual(health.headers.get('access-control-allow-origin'), null);
+});
+
+test('an allowlisted origin gets a preflight and CORS headers; others do not', async (t) => {
+  const c = await start({ corsOrigins: ['http://localhost:5000'] });
+  t.after(() => c.close());
+
+  const preflight = await c.call('OPTIONS', '/messages', {
+    headers: { Origin: 'http://localhost:5000' },
+  });
+  assert.strictEqual(preflight.status, 204);
+  assert.strictEqual(
+    preflight.headers.get('access-control-allow-origin'), 'http://localhost:5000');
+  assert.match(preflight.headers.get('access-control-allow-headers'), /Authorization/);
+  // Security headers still apply to preflight responses.
+  assert.ok(preflight.headers.get('x-content-type-options'));
+
+  const ok = await c.call('GET', '/health', { headers: { Origin: 'http://localhost:5000' } });
+  assert.strictEqual(ok.headers.get('access-control-allow-origin'), 'http://localhost:5000');
+
+  const foreign = await c.call('GET', '/health', { headers: { Origin: 'http://evil.example' } });
+  assert.strictEqual(foreign.headers.get('access-control-allow-origin'), null);
+  const foreignPreflight = await c.call('OPTIONS', '/messages', {
+    headers: { Origin: 'http://evil.example' },
+  });
+  assert.strictEqual(foreignPreflight.status, 404);
+});
+
+test('a wildcard CORS origin is refused rather than honoured', () => {
+  assert.deepStrictEqual([...parseCorsOrigins('*')], []);
+  assert.deepStrictEqual(
+    [...parseCorsOrigins(' http://a.test , *,http://b.test ')],
+    ['http://a.test', 'http://b.test']);
 });

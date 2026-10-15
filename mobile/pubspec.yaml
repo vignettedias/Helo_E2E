@@ -17,15 +17,13 @@ dependencies:
   # this project; see lib/crypto/primitives.dart.
   cryptography: ^2.7.0
 
-  # Hardware-backed key storage: Android Keystore / iOS Keychain.
+  # Hardware-backed key storage: Android Keystore / iOS Keychain. Session
+  # state and message history are sealed with AES-256-GCM under a key held
+  # here before they are stored (see SessionManager), so no separate encrypted
+  # database dependency is needed.
   flutter_secure_storage: ^9.2.2
 
-  # Encrypted local database for session state and message history.
-  sqflite_sqlcipher: ^3.1.0+1
-  path: ^1.9.0
-
-  mobile_scanner: ^5.2.3   # QR safety-number verification
-  qr_flutter: ^4.1.0
+  qr_flutter: ^4.1.0       # QR display for safety-number verification
   http: ^1.2.2
 
 dev_dependencies:
@@ -35,7 +33,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    # The SAME vector file the Python reference generates. Conformance is
-    # checked against it in test/vector_conformance_test.dart.
-    - ../tests/vectors/helo_vectors.json
+  # The cross-implementation vectors (../tests/vectors/helo_vectors.json) are
+  # read from disk by test/vector_conformance_test.dart. They are deliberately
+  # NOT bundled as an asset: they contain fixed-seed test private keys, which
+  # have no business shipping inside the app.

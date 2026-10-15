@@ -85,10 +85,40 @@ function readBody(req) {
   });
 }
 
+/**
+ * Parse a CORS allowlist. Exact origins only -- there is deliberately no
+ * wildcard. A literal '*' is dropped rather than honoured, so a careless
+ * CORS_ORIGINS=* disables CORS instead of opening it to every site.
+ */
+function parseCorsOrigins(value) {
+  const list = Array.isArray(value) ? value : String(value || '').split(',');
+  return new Set(list.map((o) => String(o).trim()).filter((o) => o && o !== '*'));
+}
+
 function createServer(options = {}) {
   const db = options.db || openDatabase(options.dbPath || ':memory:');
   const limiter = options.limiter || new RateLimiter();
   const streams = new Map(); // deviceId -> Set<ServerResponse>
+
+  // CORS exists only so a browser build of the client can reach the relay.
+  // It is OFF unless origins are allowlisted, and it is not a security
+  // boundary here: authentication is a bearer token, never a cookie, so a
+  // foreign page gains nothing it could not already do with a stolen token.
+  // Native mobile clients never send an Origin and are unaffected.
+  const corsOrigins = parseCorsOrigins(options.corsOrigins);
+
+  function corsHeaders(req) {
+    if (corsOrigins.size === 0) return {};
+    const origin = req.headers.origin;
+    if (!origin || !corsOrigins.has(origin)) return { Vary: 'Origin' };
+    return {
+      Vary: 'Origin',
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Max-Age': '600',
+    };
+  }
 
   // ---------------------------------------------------------------- helpers
 
@@ -471,6 +501,16 @@ function createServer(options = {}) {
     const started = Date.now();
     const url = new URL(req.url, 'http://relay.invalid');
     const ip = req.socket.remoteAddress || 'unknown';
+    const cors = corsHeaders(req);
+    const baseHeaders = { ...SECURITY_HEADERS, ...cors };
+
+    // CORS preflight. Answered only for an allowlisted origin; anything else
+    // falls through to the router and receives an ordinary 404.
+    if (req.method === 'OPTIONS' && cors['Access-Control-Allow-Origin']) {
+      res.writeHead(204, baseHeaders);
+      res.end();
+      return;
+    }
 
     // Realtime delivery notification stream (SSE).
     if (req.method === 'GET' && url.pathname === '/messages/stream') {
@@ -478,17 +518,17 @@ function createServer(options = {}) {
       try {
         session = requireAuth(req);
       } catch (err) {
-        res.writeHead(err.status || 401, SECURITY_HEADERS);
+        res.writeHead(err.status || 401, baseHeaders);
         res.end(JSON.stringify({ error: err.code || 'unauthorized' }));
         return;
       }
       if (!session.deviceId) {
-        res.writeHead(403, SECURITY_HEADERS);
+        res.writeHead(403, baseHeaders);
         res.end(JSON.stringify({ error: 'device_token_required' }));
         return;
       }
       res.writeHead(200, {
-        ...SECURITY_HEADERS,
+        ...baseHeaders,
         'Content-Type': 'text/event-stream',
         Connection: 'keep-alive',
       });
@@ -528,7 +568,7 @@ function createServer(options = {}) {
       }
     }
 
-    const headers = { ...SECURITY_HEADERS };
+    const headers = { ...baseHeaders };
     if (status === 429 && payload.retry_after) headers['Retry-After'] = String(payload.retry_after);
 
     res.writeHead(status, headers);
@@ -558,17 +598,21 @@ function createServer(options = {}) {
   return server;
 }
 
-module.exports = { createServer, HttpError, SECURITY_HEADERS };
+module.exports = { createServer, parseCorsOrigins, HttpError, SECURITY_HEADERS };
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 8443);
   const host = process.env.HOST || '0.0.0.0';
   const dbPath = process.env.DB_PATH || './data/helo.db';
-  const server = createServer({ dbPath });
+  const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
+  const server = createServer({ dbPath, corsOrigins: [...corsOrigins] });
   server.listen(port, host, () => {
     log.info('relay_started', { status: port });
     process.stdout.write(
       `helo-relay listening on ${host}:${port} (db: ${dbPath})\n` +
+      (corsOrigins.size
+        ? `CORS allowlist: ${[...corsOrigins].join(', ')}\n`
+        : 'CORS disabled (set CORS_ORIGINS to allow a browser client)\n') +
       'NOTE: terminate TLS in front of this process. It speaks plain HTTP by design.\n'
     );
   });

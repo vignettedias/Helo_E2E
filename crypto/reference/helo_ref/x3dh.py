@@ -46,7 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from .encoding import PROTOCOL_VERSION, b64d, b64e, lp, u8, u32
+from .encoding import PROTOCOL_VERSION, b64d, b64e, lp
 from .errors import InvalidEncodingError
 from .identity import IdentityKeyPair, IdentityPublic
 from .prekeys import PreKeyBundle, PreKeyStore
@@ -132,7 +132,7 @@ class InitialMessageHeader:
         }
 
     @staticmethod
-    def from_json(obj: dict) -> "InitialMessageHeader":
+    def from_json(obj: dict) -> InitialMessageHeader:
         try:
             version = int(obj["version"])
             if version != PROTOCOL_VERSION:

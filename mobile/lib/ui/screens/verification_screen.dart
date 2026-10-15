@@ -31,6 +31,7 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   String? _safetyNumber;
+  String? _qr;
   String? _error;
 
   @override
@@ -43,7 +44,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
     try {
       final String value =
           await widget.manager.safetyNumberFor(widget.peerDeviceId);
-      if (mounted) setState(() => _safetyNumber = value);
+      final String qr =
+          await widget.manager.verificationQrFor(widget.peerDeviceId);
+      if (mounted) {
+        setState(() {
+          _safetyNumber = value;
+          _qr = qr;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _error = 'No session with this contact.');
     }
@@ -71,12 +79,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final Conversation? c =
         widget.manager.conversations[widget.peerDeviceId];
     final String? number = _safetyNumber;
+    final String? qr = _qr;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Verify contact')),
       body: _error != null
           ? Center(child: Text(_error!))
-          : number == null
+          : number == null || qr == null
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -93,7 +102,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           padding: const EdgeInsets.all(12),
                           color: Colors.white,
                           child: QrImageView(
-                            data: 'helo:v1:$number',
+                            // Public identity encodings only, in the
+                            // reference `qr_payload` format.
+                            data: qr,
                             size: 190,
                             backgroundColor: Colors.white,
                           ),

@@ -62,7 +62,7 @@ class Envelope:
         return obj
 
     @staticmethod
-    def from_json(obj: dict) -> "Envelope":
+    def from_json(obj: dict) -> Envelope:
         """Parse and validate. Every bound is checked before any crypto runs."""
         try:
             version = int(obj["v"])

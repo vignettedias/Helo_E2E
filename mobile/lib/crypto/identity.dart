@@ -140,10 +140,14 @@ class IdentityKeyPair {
 Future<String> safetyNumber(IdentityPublic a, IdentityPublic b) async {
   final Uint8List fa = await a.fingerprint();
   final Uint8List fb = await b.fingerprint();
-  final String ha = b64e(fa);
-  final String hb = b64e(fb);
-  final List<Uint8List> ordered =
-      ha.compareTo(hb) <= 0 ? <Uint8List>[fa, fb] : <Uint8List>[fb, fa];
+  // Order by the RAW BYTES, exactly as the reference's `sorted()` does. An
+  // earlier version compared the base64 strings, which is not the same order:
+  // the base64 alphabet is not in ASCII order ('+', '/' and digits sort before
+  // letters), so roughly a third of identity pairs produced a safety number
+  // that disagreed with the reference while every Dart-only test still passed.
+  final List<Uint8List> ordered = compareBytes(fa, fb) <= 0
+      ? <Uint8List>[fa, fb]
+      : <Uint8List>[fb, fa];
 
   final Uint8List combined = await sha256Hash(concat(<List<int>>[
     infoFingerprint,
@@ -160,3 +164,20 @@ Future<String> safetyNumber(IdentityPublic a, IdentityPublic b) async {
   }
   return groups.join(' ');
 }
+
+/// Lexicographic byte comparison: the ordering Python applies to `bytes`.
+/// Public-data ordering only; not constant time, and not for secrets.
+int compareBytes(List<int> a, List<int> b) {
+  final int n = a.length < b.length ? a.length : b.length;
+  for (int i = 0; i < n; i++) {
+    if (a[i] != b[i]) return a[i] - b[i];
+  }
+  return a.length - b.length;
+}
+
+/// Payload encoded into the verification QR code — mirrors the reference
+/// `qr_payload`. Contains ONLY public material: the scanner compares what it
+/// reads against the identity it already holds for that contact. Scanning must
+/// never import a new identity, or an attacker could inject one by QR.
+String qrPayload(IdentityPublic local, IdentityPublic remoteExpected) =>
+    'helo:v1:${b64e(local.encode())}:${b64e(remoteExpected.encode())}';

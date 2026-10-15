@@ -81,10 +81,11 @@ helo/
 │   ├── lib/crypto/      Dart port of the reference
 │   ├── lib/storage/     CryptoStorage platform abstraction
 │   ├── lib/security/    secure logging
-│   └── test/vector_conformance_test.dart
+│   ├── android/ ios/ web/ windows/   generated platform projects
+│   └── test/{vector_conformance,session_manager}_test.dart
 │
 ├── tests/{unit,adversarial,property,integration,vectors}/
-├── scripts/{generate_test_vectors,benchmark,integration_e2e}.py
+├── scripts/{generate_test_vectors,benchmark,integration_e2e,run_demo}.py
 ├── docker/{Dockerfile,docker-compose.yml,Caddyfile}
 └── .github/workflows/ci.yml
 ```
@@ -103,8 +104,9 @@ tests and fail to interoperate.
 
 `scripts/generate_test_vectors.py` pins every intermediate value. The Dart
 suite replays them. That is the mechanism that makes the port verifiable rather
-than merely plausible — and it already caught one real defect during
-development.
+than merely plausible. It has caught real defects in both directions — among
+them a Dart safety number that disagreed with the reference for about a third
+of identity pairs (see RESEARCH_METHODOLOGY.md, "Defects found").
 
 ## Why the relay has zero dependencies
 

@@ -195,6 +195,29 @@ void main() {
               'different safety numbers and could never verify each other');
     });
 
+    test('safety number orders fingerprints by bytes, not by base64 text',
+        () async {
+      // Regression: the port once sorted base64 strings. This pinned pair
+      // sorts the opposite way under that rule, so it fails if it returns.
+      final Map<String, dynamic> v = _map(vectors['safety_number_ordering']);
+      final IdentityPublic a = IdentityPublic.fromJson(_map(v['identity_a']));
+      final IdentityPublic b = IdentityPublic.fromJson(_map(v['identity_b']));
+      expect(b64e(await a.fingerprint()), equals(_str(v['fingerprint_a'])));
+      expect(b64e(await b.fingerprint()), equals(_str(v['fingerprint_b'])));
+      expect(await safetyNumber(a, b), equals(_str(v['safety_number'])));
+      expect(await safetyNumber(b, a), equals(_str(v['safety_number'])),
+          reason: 'both parties must see the same number');
+    });
+
+    test('verification QR payload matches the reference', () {
+      final Map<String, dynamic> v = _map(vectors['safety_number_ordering']);
+      expect(
+        qrPayload(IdentityPublic.fromJson(_map(v['identity_a'])),
+            IdentityPublic.fromJson(_map(v['identity_b']))),
+        equals(_str(v['qr_payload_a_to_b'])),
+      );
+    });
+
     test('identity binding verifies, and a substituted key does not', () async {
       final Map<String, dynamic> v = _map(vectors['x3dh']);
       final IdentityPublic bob =
@@ -347,7 +370,7 @@ void main() {
           equals(b64e(bobResult.sharedSecret)),
           reason: 'Alice and Bob must derive the same X3DH secret');
 
-      RatchetState alice = await initInitiator(
+      final RatchetState alice = await initInitiator(
         sharedSecret: outcome.result.sharedSecret,
         remoteSignedPreKeyPub: bundle.signedPreKey.publicKey,
       );

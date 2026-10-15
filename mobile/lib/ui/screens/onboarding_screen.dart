@@ -70,10 +70,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             'invalid_credentials' => 'Incorrect username or password.',
             'weak_password' => 'Password must be at least 12 characters.',
             'rate_limited' => 'Too many attempts. Wait and try again.',
-            _ => 'Could not reach the relay (${e.code}).',
+            'validation_failed' => 'Usernames may use letters, digits, '
+                '".", "_" and "-" only.',
+            _ => 'The relay refused the request (${e.code}).',
           });
     } catch (_) {
-      setState(() => _error = 'Could not reach the relay.');
+      setState(() =>
+          _error = 'Could not reach the relay at ${widget.relay.baseUrl}.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

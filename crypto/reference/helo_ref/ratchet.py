@@ -50,7 +50,7 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass, field
 
-from .encoding import HEADER_LEN, RatchetHeader, b64d, b64e
+from .encoding import RatchetHeader
 from .errors import (
     InvalidStateTransitionError,
     ReplayError,
@@ -58,8 +58,8 @@ from .errors import (
     TooManySkippedMessagesError,
 )
 from .primitives import (
-    AES_GCM_NONCE_LEN,
     AES256_KEY_LEN,
+    AES_GCM_NONCE_LEN,
     CHAIN_CONST_MESSAGE_KEY,
     CHAIN_CONST_NEXT_CHAIN_KEY,
     CHAIN_KEY_LEN,

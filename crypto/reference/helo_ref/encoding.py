@@ -52,7 +52,7 @@ def b64e(data: bytes) -> str:
 def b64d(text: str, *, expect_len: int | None = None) -> bytes:
     try:
         raw = base64.b64decode(text, validate=True)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise InvalidEncodingError("invalid base64 field") from exc
     if expect_len is not None and len(raw) != expect_len:
         raise InvalidEncodingError(
@@ -113,7 +113,7 @@ class RatchetHeader:
         return u8(self.version) + validate_x25519_public(self.dh_pub) + u32(self.pn) + u32(self.n)
 
     @staticmethod
-    def decode(data: bytes) -> "RatchetHeader":
+    def decode(data: bytes) -> RatchetHeader:
         r = Reader(data)
         version = r.u8()
         if version != PROTOCOL_VERSION:
