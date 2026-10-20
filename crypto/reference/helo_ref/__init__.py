@@ -1,6 +1,8 @@
 """Helo reference protocol implementation.
 
-STATUS: Classical X3DH + Double Ratchet implementation. NOT post-quantum secure.
+STATUS: X3DH or (experimental) hybrid PQXDH establishment + Double Ratchet.
+The hybrid protects session establishment only; the ratchet is classical, so
+the system is NOT described as post-quantum secure.
 
 This package is the NORMATIVE reference for the Helo protocol. The Dart /
 Flutter client implementation must reproduce the test vectors this package
@@ -10,11 +12,13 @@ protocol and the client is wrong.
 
 from .errors import (  # noqa: F401
     AuthenticationError,
+    DowngradeRejectedError,
     HeloError,
     IdentityChangedError,
     InvalidEncodingError,
     InvalidKeyError,
     InvalidStateTransitionError,
+    PostQuantumUnavailableError,
     PreKeyUnavailableError,
     ReplayError,
     SessionStateCorruptError,
@@ -24,6 +28,7 @@ from .errors import (  # noqa: F401
 )
 from .identity import IdentityKeyPair, IdentityPublic, safety_number  # noqa: F401
 from .message import Envelope  # noqa: F401
+from .pqxdh import PQXDH  # noqa: F401
 from .prekeys import PreKeyBundle, PreKeyStore  # noqa: F401
 from .session import (  # noqa: F401
     Session,

@@ -1,4 +1,15 @@
 {
+  "attachment": {
+    "ad": "Helo_Attachment_v1",
+    "chunk_size": 64,
+    "ciphertext": "bUQ6IMbPly2n0mRiJNMMWIPAqPTJAjl3F8OeSe2Fls9fprsYumPAoQBf4DC3D0PHzzuThb2V5KGNHTq7U+8Tlw079oMB3hmAmtL1LP7MyrLH7JH99/GkgKJtV2iLTgiNkSZ5Tx4SAiXIdRYqAAeSTAllf9m629KBJP8DzxWhodXxO0+qT+tzyRgn6/28jAUGxZeoJCOlNxDVjRUo9/wNlkd4PbUX63dovufyYHu0XX8FUUTfum/pq6/B5K1SWwcvjHhF5/ayUPvT5FZUUKt1gSEfZc3R5Wex/LHiRzVcFnEHdkKwnckFBtWulO+NANpFPVMwgRhALaXEwjen5XyLjMdyDQ9cXJux",
+    "default_chunk_ciphertext": "Ll/Huq1yqycKHK1Xy/ToA2IN290HQJG2noissUuYoLfvp3MTddDbAn6byozirSAyxlKIbEvC/KbOXLuN2Kpfu/XEBJF9o5fhRYHUXdIBFsZ3N4vX7njLQJFk2mWsFbSxbQgqn2QHH/z0tTV5c17ZKjTYdqY=",
+    "default_chunk_plaintext": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/+HTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBA==",
+    "description": "STREAM AES-256-GCM: nonce = 0^7 || u32(i) || u8(final), AD fixed.",
+    "digest": "BIAcBGceSDetHNfbswfEqQg6vUfCHTueDS+KBycoAXE=",
+    "key": "hseyBFiwqrHn5bcUG0xL8PpGNECbYOQBI0ge50UUoBo=",
+    "plaintext": "ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcjnBiVEY4KhwN/+HTxbepm41/YVNFNykbDP7g0sS2qJqMfmBSRDYoGgv979HDtaeZi31vUUM1JxkK/O7QwrSmmIp8blBCNCYYCfvt38GzpZeJe21fQTMlFwj67N7AsqSWiHpsXkAyJBYH+evdz7GjlYd5a11PMSMVBvjq3M6wopSGeGpcTjAiFAX36dvNv6GThXdpW00/IRME9ujazL6gkoR2aFpMPiASA="
+  },
   "double_ratchet": {
     "alice_identity_private": {
       "dh_priv": "n6jnXBl9Dau9A62HJEnw1LLOYdsD1JSxtiaXmHlzdrU=",
@@ -296,7 +307,377 @@
       }
     ]
   },
+  "padding": {
+    "cases": [
+      {
+        "padded_length": 160,
+        "payload_length": 0,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 160,
+        "payload_length": 1,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 160,
+        "payload_length": 158,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 160,
+        "payload_length": 159,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 320,
+        "payload_length": 160,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 320,
+        "payload_length": 254,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 320,
+        "payload_length": 255,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 320,
+        "payload_length": 256,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 320,
+        "payload_length": 300,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 1120,
+        "payload_length": 1000,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 5120,
+        "payload_length": 5000,
+        "policy": "block-160"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 0,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 1,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 158,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 159,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 160,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 254,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 255,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 512,
+        "payload_length": 256,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 512,
+        "payload_length": 300,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 1024,
+        "payload_length": 1000,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 5120,
+        "payload_length": 5000,
+        "policy": "block-256"
+      },
+      {
+        "padded_length": 1,
+        "payload_length": 0,
+        "policy": "none"
+      },
+      {
+        "padded_length": 2,
+        "payload_length": 1,
+        "policy": "none"
+      },
+      {
+        "padded_length": 159,
+        "payload_length": 158,
+        "policy": "none"
+      },
+      {
+        "padded_length": 160,
+        "payload_length": 159,
+        "policy": "none"
+      },
+      {
+        "padded_length": 161,
+        "payload_length": 160,
+        "policy": "none"
+      },
+      {
+        "padded_length": 255,
+        "payload_length": 254,
+        "policy": "none"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 255,
+        "policy": "none"
+      },
+      {
+        "padded_length": 257,
+        "payload_length": 256,
+        "policy": "none"
+      },
+      {
+        "padded_length": 301,
+        "payload_length": 300,
+        "policy": "none"
+      },
+      {
+        "padded_length": 1001,
+        "payload_length": 1000,
+        "policy": "none"
+      },
+      {
+        "padded_length": 5001,
+        "payload_length": 5000,
+        "policy": "none"
+      },
+      {
+        "padded_length": 1,
+        "payload_length": 0,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 2,
+        "payload_length": 1,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 160,
+        "payload_length": 158,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 160,
+        "payload_length": 159,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 176,
+        "payload_length": 160,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 254,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 255,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 272,
+        "payload_length": 256,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 304,
+        "payload_length": 300,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 1024,
+        "payload_length": 1000,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 5120,
+        "payload_length": 5000,
+        "policy": "padme"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 0,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 1,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 158,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 159,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 160,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 254,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 256,
+        "payload_length": 255,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 512,
+        "payload_length": 256,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 512,
+        "payload_length": 300,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 1024,
+        "payload_length": 1000,
+        "policy": "pow2-256"
+      },
+      {
+        "padded_length": 8192,
+        "payload_length": 5000,
+        "policy": "pow2-256"
+      }
+    ],
+    "description": "payload || 0x80 || 0x00* to a bucket; padded length per policy.",
+    "example": {
+      "padded": "eyJ2IjoxLCJrIjoidHlwaW5nIn2AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "payload": "eyJ2IjoxLCJrIjoidHlwaW5nIn0=",
+      "policy": "block-256"
+    }
+  },
   "post_quantum": false,
+  "pqxdh": {
+    "alice_identity_private": {
+      "dh_priv": "FiVWB109Yy06Pf4wWJDMrXincSp9907PvqTL/8tuazU=",
+      "sig_seed": "lk052+dBLMvokWMRBLBKpZ+BQuC4Rl6Tnbg9aPdPuGc="
+    },
+    "associated_data": "SGVsb19BRF92MQEAIO+FvbWf1rlDDlJ1gVUDI8l3YDOZdzZ63L/bLqr2tNKVACC4knMJ+bSX2AmvR04ELSywjPENhBvQSxplS9qyl9lwSQEAINRZt0uwgJ+rvfDcCImSs4DPyjUw9PXv6osHm6s2vJVIACCsvDSjn6JEaucmLV8xjH93CxwMYfvqYoiQZ7FSlJPgfQ==",
+    "bob_identity_private": {
+      "dh_priv": "dDkYYAfIUHgGI99Pyzj6mkIId+XHJ6Tb0/SOnkM1mlw=",
+      "sig_seed": "q0nbksqrMWhsy3vsJISsb45VuH3Y8jX/ALIT6hAuxUM="
+    },
+    "bob_one_time_prekey_private": "jmqDuRUiis0Am8eSmuu5fTVNZlukrRzAtHC7pl0VpOc=",
+    "bob_pq_prekey_seed": "+7ol0+h1s6+yn3H5OXPky6xpqtPm6eu29oVutrO/BicGRmRoTZBDAwy46G0VeiP2DtuhcChSy8N6u+q32rMbdQ==",
+    "bob_prekey_bundle": {
+      "device_id": "bob-device-1",
+      "identity": {
+        "binding_sig": "SZC3pssE3rXsRKBYUiOG7hYn7rEM/jJBwkmMYqs5D7HzNIUd/l/Uk1dVpUMkHxO0Du+wO+CUtsfGwhZ8f/IJAw==",
+        "dh_pub": "rLw0o5+iRGrnJi1fMYx/dwscDGH76mKIkGexUpST4H0=",
+        "sig_pub": "1Fm3S7CAn6u98NwIiZKzgM/KNTD09e/qiwebqza8lUg="
+      },
+      "one_time_prekey": {
+        "key_id": 1,
+        "public": "3PTU8A8NvjvQZMQNebaICOLLERxr3iKyGz/xD3rTASg="
+      },
+      "pq_prekey": {
+        "key_id": 2,
+        "one_time": true,
+        "public": "AZZkAjDkMbeXm8apgpT8AHnob9QwM96cV+lpiYDrtFBrCijcx8CDzVwSnSGGPHXypupSFqtrS+t1H58sH441G1qEnJm0If1VoJ12ryGckWKFnOBHkbYyO5oMkpEoTfkLPVZbjhpchgMsgc4KzDnsTE6XO0BJTRT3GalAq9MlJN2IYRr6IHwRBb7KKhIoXPzqNKtad+63UTmpFAUQq/JWDu/QAWMTNuY0wYMsDClSq2KEEnaCBhb4NDT6Vnk5cQ75ldGhQl06DvZ4InK0C3q5XtF6Jmkns4CpGtS6jG3ssZ1mpskjyC06ZZ4LAduhH6g1bpm2Kg43XEd3g6c6rG2DovWAqYy1uQtatJ7UbNLMUHmbqZpqQOAxWNzSH+9xDOPsXQezDm3jkVN4z8Qyw3mYSC5JXjfzFLXSOZjlo2+8skrQVBuWgEfcsr6QhtrQUm9bpaz5zSQghgkMebpxbquYisO0U03TwZZlNzszjJEmTuKCsOqcezmxT8QqwW6MjVphtXDyjuA6I/6IHnziGc64orNkLsE7me5ift97Ggo6RLGCVgC6u74lWcThUBV1iK8IVyWkBk1sOl+wp1EsHT+iAxBCbyZXYLWig3i4cxtMYS+gEUtBqeQksopGAV13r+BByDQMlyHwFFGpFHc3L/FzjzNBQcDqOUKyvkMnbZiquctbFlzbl0iXXdUyKRlgn/WMF7c7OYoqmEO3xdhJRt3WQNzzU2LLkF1xTDecmgZHZ1Q1IUc7Uiw3HPWSqpEcO0AiEH2otteVCy0ylcVTVAFgaYDschC4mqUwEfiLedEhKzYVDqgZRy1VAZAxJrXIhbEMScFat/jgGppDkzPHaGYputypQh6nk1Bob/j7aBKxsIYgB7O6eFhMAIEgI1NYZMVyE/2jkKJxQYamp4r2W54nvuIclzcAgvz3Jh2Rh0TgCZ23sdhrve9TvpXlTKo0Vdz5NgNzCCXVDCe1fvw7DEaZLUswJJOTGornYcCwkgNruN6AZcJIUIcnjqqHTYhHOPZkqpa8muQZlkQGCCYDIuLCFAQovVg3f6tDn2dbMhcRSRLibp3wYybIw/+QelXQCWcJcg/Igyh6zovKE+fIrwV2TRyLTZe7U+/LZLvVlrhgzYojwiciZ376OBvFNVBweKMFOaSnkd1KhAw3P10zDWihWanUqb7Cu4JQMXuBbT5zO9NgzE6FlvVRHAR5nZlDqSLCkEo0oZ1gLIZzJzK2VVD6uTWME/5ig/L1BiGBEvq3SeomZkDoHVOsB6i1BXBaXYjrkwhKUOvDz/rqfttMWBOspeJUD0sojLz0ZZkHj9WXkMMXJtEcklasMTfUbFdypChwzosEGn/SkK8aSgTyXvYjVclYSBUzUUzxciM0O5OIut6xYQvLmNOLd0rCahAwz1mzL4G5TiVQRvRLAkimMJoWg7DTBUFIxqzbeGRsRgL0SaaBkYD3lLrhXiapWU8EY6gDutVhSmDDXseDwwlMaY6mNUNUuEXALBU7UGiBJbsImu40SmCII3xUbP21MXBhKxtUvJWmASY+T8S7XL6kZ5qTcq96uGToD+w2crVcy+f3wDtn",
+        "signature": "vIZNXq5IoTKbal8uTMnemRos2P6u24ozjZZfhsvA4UsOl2fn34/LhRA4zW1gmFKE0qeHCY2dW1vywoyBoxRxAw=="
+      },
+      "signed_prekey": {
+        "created_at": 1700000000,
+        "key_id": 1,
+        "public": "NQDn6JWMeVIMdI6xjZFeGkwnXiUOag21lIQ1fD/Kxnc=",
+        "signature": "qHt1QZcZ0t7pfSKe+P2FZ1J9MoS8HKnACQjHUs8CZJXUplUzohGrO6ZIOZxH1nV+FoiDz2kvD3F2u3SK41ZaCg=="
+      }
+    },
+    "bob_signed_prekey_private": "1yFS4gqUnIaXj7TnVqtctg9J7SHcozzVTMTFWCPPs0k=",
+    "description": "Hybrid PQXDH (X25519 x4 + ML-KEM-768). The ML-KEM key is derived from a pinned FIPS 203 seed; the ciphertext is a pinned OpenSSL encapsulation.",
+    "info": "Helo_PQXDH_X25519_SHA-256_ML-KEM-768_v1",
+    "kem_ciphertext": "KaaqfDoPzrWGJ8xFvxesKrLv161kB5SFpobcf8uwruCT7Ndka2cLpw0ezyu4hgw2wluEocd/VlBkLyGO+QkBZrjC1cW4lScJOb0PvY3nNJe9/gID/sG6dVjObq8RUAkEWNWCZxgWpUcxtVtu7TNi6MqwRLv4gb3VD5ZOytN8nACRDKN+GwQ3xFcM1mlQ/1pkO9m4nxYNFTqvPNXcgMpMCngAVhnlsAUxYg0umyYMmV3BLBq1ZzO79WF+6HWldAx2YIz4cNmMGFYUQU/mmgzaZuDnUwhFs36L6Fw+P8/40EuOGcokwL0pZ5NzL30Ewoz0xIdCeTPkReU8WV9FXqV/JMp8dOKn3nlA6BYh/fR3H6nu8TqfULK8ecctDWQecq9HVVVAdkwloQ0pUTLLnMozDJUFHU1y+wfGz4mMfRFIGMF/3dww6E9Sh23Cv0jxbku6pq+LpHpOpE6LimMlwYDP2CCmhjzrz0Qtk8pErarT4S/4QaLcM/QWjlBHLVUHG7gRgNUcLLHR1QhWHiI63Q1P+F0ED8QgWzqBTNdkOpxR7yS2pDSF7oduxKKAQSOLHsXIYDxaeXPQlB6jXotflS6nTeXkY77788vek/vXDQBXHzLfLigeyR+yrE54aSQTbKFC/+nBoqi8Q1H8j6FFdeuN1MdJihhtbL0B+GsXTcwSzn2EUusbE2WBwu9SGKd9d5uAtiJ7JwZYanBFQ2LD5fCLp8ouCJhvV+lcmkvoLBloOMWjrK27gcb2+qIvJCkb9zrsVPS5sA7bp0ZfZvZkf82wTBp5/rLFheIpeLSINhm/aqwXv1TmEJ7hsXQ5hn+jcy9HtKuan/SnAuwDryacCIomBII2qf4OwG894shAcjzhc9ClB+a+zW+7q2KSXLjO58obfhHIH3JXckYiubBtHhpUpeiWtlHMGGeklqNGjMHdNzWOi6711spCwX+G+9/b2zWfpYo6f0ZRP+Mw+u5iWAMA9YKAMx+GDGs+czjdlhlOKYG2Tw7Gz6RSWQ4oDO3w8ack2bzqZaG7Qw7xQ+6gvkmN8rq1RPTymW5EKARh4Dn9zIsZFu8HsbtEQ0K7fCduCWsIduO6sTZz/RULXhRtilmTDoJlzCSNl1Y2MlRA+iDt0m9IJXoX46mKyDDlQIjknigwdP1u6L1LzsxFBtHqJ5oP6MDDFvkxq1G6Nd52wR9hanELL1H58EGxb9LOspmqvFhkBP4VukXNmA5h6VfRUmWcl6kAfgt24lYzRMQt+oQlGeymXxTVBmT1BYAvPLAIfusLXebp+eh+bvuftBGdLNwXef5QbsIY6UQ1NNHMVFy927/FEOaGwkIu24TpMmOuLocFHfHsS78kvd++RpL9r0x58ES9BaRwzk31kZTzq1uRdfyg4t7EVkUxkrUOw9Dl9yLELOALyexJsh/AZcMgFXCRRaG+X+6qP9KTiPYDT7AMZ3w=",
+    "kem_shared_secret": "x/9QbjzMDehtw69geSTcuyc/KTIB0r9DM/m5Yayn++8=",
+    "session_id": "f1e3dc66ab59e32df365840f8488cec3",
+    "shared_secret": "uUaGZy9Q9BBxUjCwAiYOq+zXrgNcke8ZlqtnxWq0UDk=",
+    "transcript": [
+      {
+        "direction": "alice->bob",
+        "envelope": {
+          "ciphertext": "QnALxeM3DBLRcSZSDK0EZgA5RLZhBFJuHdMj30kZzuoOom1EiwKxZlQjKw==",
+          "header": "AX3cC5xrhuWPtSwKwJw69uQwSZHM5dWuzhD7EM/92JJsAAAAAAAAAAA=",
+          "sender_device_id": "alice-device-1",
+          "session_id": "f1e3dc66ab59e32df365840f8488cec3",
+          "type": "prekey",
+          "v": 1,
+          "x3dh": {
+            "ephemeral_pub": "4c0AaMpoZZcl+L/5jgz4nxQ8EMNjfqocp2bYRLtN7w0=",
+            "initiator_identity": {
+              "binding_sig": "E18paab0QTY2+t8BWvKo8nvSUAu2xaRwa4WcJBYxiD22dqhuVUUSGyTtpU+FeyNi8sybyQtWMd9Ci+TA/2e2Bg==",
+              "dh_pub": "uJJzCfm0l9gJr0dOBC0ssIzxDYQb0EsaZUvaspfZcEk=",
+              "sig_pub": "74W9tZ/WuUMOUnWBVQMjyXdgM5l3Nnrcv9suqva00pU="
+            },
+            "one_time_prekey_id": 1,
+            "pq": {
+              "ct": "KaaqfDoPzrWGJ8xFvxesKrLv161kB5SFpobcf8uwruCT7Ndka2cLpw0ezyu4hgw2wluEocd/VlBkLyGO+QkBZrjC1cW4lScJOb0PvY3nNJe9/gID/sG6dVjObq8RUAkEWNWCZxgWpUcxtVtu7TNi6MqwRLv4gb3VD5ZOytN8nACRDKN+GwQ3xFcM1mlQ/1pkO9m4nxYNFTqvPNXcgMpMCngAVhnlsAUxYg0umyYMmV3BLBq1ZzO79WF+6HWldAx2YIz4cNmMGFYUQU/mmgzaZuDnUwhFs36L6Fw+P8/40EuOGcokwL0pZ5NzL30Ewoz0xIdCeTPkReU8WV9FXqV/JMp8dOKn3nlA6BYh/fR3H6nu8TqfULK8ecctDWQecq9HVVVAdkwloQ0pUTLLnMozDJUFHU1y+wfGz4mMfRFIGMF/3dww6E9Sh23Cv0jxbku6pq+LpHpOpE6LimMlwYDP2CCmhjzrz0Qtk8pErarT4S/4QaLcM/QWjlBHLVUHG7gRgNUcLLHR1QhWHiI63Q1P+F0ED8QgWzqBTNdkOpxR7yS2pDSF7oduxKKAQSOLHsXIYDxaeXPQlB6jXotflS6nTeXkY77788vek/vXDQBXHzLfLigeyR+yrE54aSQTbKFC/+nBoqi8Q1H8j6FFdeuN1MdJihhtbL0B+GsXTcwSzn2EUusbE2WBwu9SGKd9d5uAtiJ7JwZYanBFQ2LD5fCLp8ouCJhvV+lcmkvoLBloOMWjrK27gcb2+qIvJCkb9zrsVPS5sA7bp0ZfZvZkf82wTBp5/rLFheIpeLSINhm/aqwXv1TmEJ7hsXQ5hn+jcy9HtKuan/SnAuwDryacCIomBII2qf4OwG894shAcjzhc9ClB+a+zW+7q2KSXLjO58obfhHIH3JXckYiubBtHhpUpeiWtlHMGGeklqNGjMHdNzWOi6711spCwX+G+9/b2zWfpYo6f0ZRP+Mw+u5iWAMA9YKAMx+GDGs+czjdlhlOKYG2Tw7Gz6RSWQ4oDO3w8ack2bzqZaG7Qw7xQ+6gvkmN8rq1RPTymW5EKARh4Dn9zIsZFu8HsbtEQ0K7fCduCWsIduO6sTZz/RULXhRtilmTDoJlzCSNl1Y2MlRA+iDt0m9IJXoX46mKyDDlQIjknigwdP1u6L1LzsxFBtHqJ5oP6MDDFvkxq1G6Nd52wR9hanELL1H58EGxb9LOspmqvFhkBP4VukXNmA5h6VfRUmWcl6kAfgt24lYzRMQt+oQlGeymXxTVBmT1BYAvPLAIfusLXebp+eh+bvuftBGdLNwXef5QbsIY6UQ1NNHMVFy927/FEOaGwkIu24TpMmOuLocFHfHsS78kvd++RpL9r0x58ES9BaRwzk31kZTzq1uRdfyg4t7EVkUxkrUOw9Dl9yLELOALyexJsh/AZcMgFXCRRaG+X+6qP9KTiPYDT7AMZ3w=",
+              "key_id": 2
+            },
+            "signed_prekey_id": 1,
+            "version": 2
+          }
+        },
+        "plaintext": "UFEwOiBoeWJyaWQgaW5pdGlhbCBtZXNzYWdl"
+      },
+      {
+        "direction": "bob->alice",
+        "envelope": {
+          "ciphertext": "5EBek3cI84HqHpWZFJKw3E2bwuqKbx1l8G/agZ3O2IALcFrwQ/jgztfn+A==",
+          "header": "AZpOjQ1ALKoZbOV+cHPaZt98LTjyxXlv7BCeHE0bB0drAAAAAAAAAAA=",
+          "sender_device_id": "bob-device-1",
+          "session_id": "f1e3dc66ab59e32df365840f8488cec3",
+          "type": "normal",
+          "v": 1
+        },
+        "plaintext": "UFExOiByZXBseSBvdmVyIHRoZSByYXRjaGV0"
+      }
+    ]
+  },
   "primitives": {
     "aes_256_gcm": {
       "associated_data": "QUQ=",
@@ -353,6 +734,66 @@
     }
   },
   "protocol": "Helo/1 X3DH-Curve25519-SHA256 + DoubleRatchet + AES-256-GCM",
+  "qr_check": {
+    "cases": [
+      {
+        "expected": "match",
+        "name": "bob shows his code, both keys as held",
+        "scanned": "helo:v1:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9"
+      },
+      {
+        "expected": "peer_key_mismatch",
+        "name": "code of someone else (or a key the relay substituted)",
+        "scanned": "helo:v1:AQAgdVk/mqOua0yuTzbBC6CHO9rVBulgqKOxxQAbn6mtTAsAIAGJkmDspgUn0ZPq6qhcQfYTA3xBdU66aPDi0F/INdJo:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9"
+      },
+      {
+        "expected": "own_key_mismatch",
+        "name": "bob holds a different key for alice",
+        "scanned": "helo:v1:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH:AQAgdVk/mqOua0yuTzbBC6CHO9rVBulgqKOxxQAbn6mtTAsAIAGJkmDspgUn0ZPq6qhcQfYTA3xBdU66aPDi0F/INdJo"
+      },
+      {
+        "expected": "peer_key_mismatch",
+        "name": "halves swapped",
+        "scanned": "helo:v1:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH"
+      },
+      {
+        "expected": "not_helo",
+        "name": "not a helo code",
+        "scanned": "https://example.com/helo:v1:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9"
+      },
+      {
+        "expected": "not_helo",
+        "name": "wrong version",
+        "scanned": "helo:v2:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9"
+      },
+      {
+        "expected": "not_helo",
+        "name": "three parts",
+        "scanned": "helo:v1:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9:AAAA"
+      },
+      {
+        "expected": "not_helo",
+        "name": "bad base64",
+        "scanned": "helo:v1:!!!!:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9"
+      },
+      {
+        "expected": "not_helo",
+        "name": "oversized",
+        "scanned": "helo:v1:AQAgYK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/EAIK5RgTCgukVd811ZaB6E4pbLIifFZJN1oWU9htFY/ncH:AQAgN6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkwAIM4EC2YRV7Ex40WZCnsGVRawP54Nj76j4JueRwWAkEF9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    ],
+    "description": "Alice (me) scans Bob's code; expected outcome per case.",
+    "me": {
+      "binding_sig": "awXynJxk5iUyXheiCsCD+2UdH7eCLP+nP5a95VJgi2HnE+9lxKu6wsTERoLkjERlfA6tIlvtjSxvRXBA+GsOBw==",
+      "dh_pub": "zgQLZhFXsTHjRZkKewZVFrA/ng2PvqPgm55HBYCQQX0=",
+      "sig_pub": "N6BoemZpcPBHxjYC/u1FbrIDZF5d0LdXtXMgV+kzPkw="
+    },
+    "peer": {
+      "binding_sig": "ybQR9kV+1T4E8n+llYSZzGdS00vOxep8ySmJNqTgtvqRRK9r3OIba2CHp/ZI5B4WXAsk055cbbtK8H/XIPjVDA==",
+      "dh_pub": "rlGBMKC6RV3zXVloHoTilssiJ8Vkk3WhZT2G0Vj+dwc=",
+      "sig_pub": "YK5WUND+xGWnE/Q+kbsuvMsV+bv214t7smyLIgb8u/E="
+    }
+  },
   "safety_number_ordering": {
     "a_sorts_first_by_bytes": false,
     "description": "Identity pair whose fingerprints order differently as raw bytes than as base64 text. The safety number must follow byte order.",

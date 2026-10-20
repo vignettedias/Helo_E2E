@@ -36,7 +36,10 @@ async function start(options = {}) {
 
   return {
     server, base, call,
-    close: () => new Promise((resolve) => server.close(resolve)),
+    close: () => new Promise((resolve) => {
+      server.close(resolve);
+      server.closeAllConnections();
+    }),
   };
 }
 
@@ -238,9 +241,10 @@ test('messages relay end to end and are deleted on acknowledgement', async (t) =
   const bobToken = await registerAndLogin(c, 'bob');
   const bobDevice = await registerDevice(c, bobToken, 'bob-device');
   const aliceToken = await registerAndLogin(c, 'alice');
+  const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   const send = await c.call('POST', '/messages', {
-    token: aliceToken,
+    token: aliceDevice,
     body: { recipient_device_id: 'bob-device', envelope: fakeEnvelope() },
   });
   assert.strictEqual(send.status, 202);
@@ -266,10 +270,11 @@ test('offline queue preserves messages until the recipient connects', async (t) 
   const bobToken = await registerAndLogin(c, 'bob');
   const bobDevice = await registerDevice(c, bobToken, 'bob-device');
   const aliceToken = await registerAndLogin(c, 'alice');
+  const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   for (let i = 0; i < 5; i += 1) {
     await c.call('POST', '/messages', {
-      token: aliceToken,
+      token: aliceDevice,
       body: { recipient_device_id: 'bob-device', envelope: fakeEnvelope('alice-device', 'abc12' + i) },
     });
   }
@@ -283,11 +288,12 @@ test('envelope with an unexpected field is rejected', async (t) => {
   const bobToken = await registerAndLogin(c, 'bob');
   await registerDevice(c, bobToken, 'bob-device');
   const aliceToken = await registerAndLogin(c, 'alice');
+  const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   // A client bug attaching a plaintext preview must be refused at the boundary.
   const bad = { ...fakeEnvelope(), preview: 'hi bob' };
   const res = await c.call('POST', '/messages', {
-    token: aliceToken, body: { recipient_device_id: 'bob-device', envelope: bad },
+    token: aliceDevice, body: { recipient_device_id: 'bob-device', envelope: bad },
   });
   assert.strictEqual(res.status, 400);
   assert.strictEqual(res.body.field, 'preview');
@@ -299,6 +305,7 @@ test('oversized and malformed envelopes are rejected', async (t) => {
   const bobToken = await registerAndLogin(c, 'bob');
   await registerDevice(c, bobToken, 'bob-device');
   const aliceToken = await registerAndLogin(c, 'alice');
+  const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   const cases = [
     { ...fakeEnvelope(), ciphertext: 'not base64!!' },
@@ -309,7 +316,7 @@ test('oversized and malformed envelopes are rejected', async (t) => {
   ];
   for (const envelope of cases) {
     const res = await c.call('POST', '/messages', {
-      token: aliceToken, body: { recipient_device_id: 'bob-device', envelope },
+      token: aliceDevice, body: { recipient_device_id: 'bob-device', envelope },
     });
     assert.ok(res.status === 400 || res.status === 413,
       `expected rejection, got ${res.status}`);
@@ -325,7 +332,7 @@ test('a device cannot fetch another device queue', async (t) => {
   const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   await c.call('POST', '/messages', {
-    token: aliceToken,
+    token: aliceDevice,
     body: { recipient_device_id: 'bob-device', envelope: fakeEnvelope() },
   });
   const res = await c.call('GET', '/messages', { token: aliceDevice });
@@ -340,6 +347,7 @@ test('a revoked device cannot authenticate or receive messages', async (t) => {
   const bobToken = await registerAndLogin(c, 'bob');
   const bobDevice = await registerDevice(c, bobToken, 'bob-device');
   const aliceToken = await registerAndLogin(c, 'alice');
+  const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   await c.call('POST', '/devices/revoke', {
     token: bobToken, body: { device_id: 'bob-device' },
@@ -347,7 +355,7 @@ test('a revoked device cannot authenticate or receive messages', async (t) => {
 
   assert.strictEqual((await c.call('GET', '/messages', { token: bobDevice })).status, 401);
   const send = await c.call('POST', '/messages', {
-    token: aliceToken, body: { recipient_device_id: 'bob-device', envelope: fakeEnvelope() },
+    token: aliceDevice, body: { recipient_device_id: 'bob-device', envelope: fakeEnvelope() },
   });
   assert.strictEqual(send.status, 410);
   const prekeys = await c.call('GET', '/prekeys/bob-device', { token: aliceToken });
@@ -407,6 +415,7 @@ test('security headers are present on every response', async (t) => {
   const c = await start();
   t.after(() => c.close());
   const res = await c.call('GET', '/health');
+  assert.strictEqual(res.status, 200);
   for (const header of ['x-content-type-options', 'x-frame-options',
     'content-security-policy', 'referrer-policy', 'cache-control']) {
     assert.ok(res.headers.get(header), `missing ${header}`);
@@ -418,6 +427,8 @@ test('health endpoint leaks no user metadata', async (t) => {
   t.after(() => c.close());
   await registerAndLogin(c, 'alice');
   const res = await c.call('GET', '/health');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.status, 'ok');
   const body = JSON.stringify(res.body);
   assert.ok(!body.includes('alice'));
   assert.ok(!/user_count|device_count|accounts/.test(body));
@@ -453,12 +464,13 @@ test('queue preserves strict FIFO order within the same second', async (t) => {
   const bobToken = await registerAndLogin(c, 'bob');
   const bobDevice = await registerDevice(c, bobToken, 'bob-device');
   const aliceToken = await registerAndLogin(c, 'alice');
+  const aliceDevice = await registerDevice(c, aliceToken, 'alice-device');
 
   const sent = [];
   for (let i = 0; i < 20; i += 1) {
     const sessionId = i.toString(16).padStart(8, '0');
     const res = await c.call('POST', '/messages', {
-      token: aliceToken,
+      token: aliceDevice,
       body: {
         recipient_device_id: 'bob-device',
         envelope: fakeEnvelope('alice-device', sessionId),

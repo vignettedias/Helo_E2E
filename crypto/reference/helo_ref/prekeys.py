@@ -6,6 +6,8 @@ signed by Bob's identity key or bound into the session transcript.
 
   SignedPreKey    X25519, rotated periodically, signature by IK_sig.
   OneTimePreKey   X25519, consumed once, NOT individually signed.
+  PQPreKey        ML-KEM-768, signed by IK_sig. One-time keys are consumed;
+                  the last-resort key is reused when none remain (PQXDH).
 
 Why one-time prekeys are not signed
 -----------------------------------
@@ -25,6 +27,7 @@ from dataclasses import dataclass
 from .encoding import b64d, b64e, lp, u32
 from .errors import InvalidEncodingError, PreKeyUnavailableError
 from .identity import IdentityKeyPair, IdentityPublic
+from .pq import ENCODED_PQ_PUBLIC_LEN, MLKEM768, decode_pq_public, encode_pq_public
 from .primitives import (
     DEFAULT_RANDOM,
     ED25519_SIG_LEN,
@@ -36,17 +39,78 @@ from .primitives import (
 )
 
 SIGNED_PREKEY_CONTEXT = b"Helo_SignedPreKey_v1"
+PQ_PREKEY_CONTEXT = b"Helo_PQPreKey_v1"
 
 # Lifecycle policy (see docs/protocol/key-lifecycle.md)
 SIGNED_PREKEY_ROTATION_SECONDS = 7 * 24 * 60 * 60      # rotate weekly
 SIGNED_PREKEY_RETENTION_SECONDS = 30 * 24 * 60 * 60    # keep old private key 30d
 ONE_TIME_PREKEY_BATCH = 100
 ONE_TIME_PREKEY_LOW_WATERMARK = 20
+# ML-KEM public keys are ~1.2 KB each, so the one-time batch is smaller.
+PQ_ONE_TIME_PREKEY_BATCH = 20
+PQ_ONE_TIME_PREKEY_LOW_WATERMARK = 5
 
 
 def signed_prekey_signing_input(key_id: int, public: bytes) -> bytes:
     """Exactly what IK_sig signs. Includes the key id to prevent id swapping."""
     return SIGNED_PREKEY_CONTEXT + u32(key_id) + lp(public)
+
+
+def pq_prekey_signing_input(key_id: int, encoded_public: bytes) -> bytes:
+    """What IK_sig signs for a PQ prekey. `encoded_public` carries the KEM id,
+    so the signature also fixes which KEM the key belongs to."""
+    return PQ_PREKEY_CONTEXT + u32(key_id) + lp(encoded_public)
+
+
+@dataclass
+class PQPreKeyPrivate:
+    """An ML-KEM prekey. SECRET: `seed` is the FIPS 203 (d || z) private key."""
+
+    key_id: int
+    seed: bytes
+    public: bytes  # Encode(PQPK)
+    last_resort: bool
+    created_at: int
+
+
+@dataclass
+class PQPreKeyPublic:
+    key_id: int
+    public: bytes  # Encode(PQPK) = KEM id || ek
+    signature: bytes
+    one_time: bool
+
+    def verify(self, identity: IdentityPublic) -> None:
+        """Check the encoding and the IK_sig signature. Fails closed."""
+        decode_pq_public(self.public)
+        ed25519_verify(
+            identity.sig_pub,
+            self.signature,
+            pq_prekey_signing_input(self.key_id, self.public),
+        )
+
+    def encapsulation_key(self) -> bytes:
+        return decode_pq_public(self.public)
+
+    def to_json(self) -> dict:
+        return {
+            "key_id": self.key_id,
+            "public": b64e(self.public),
+            "signature": b64e(self.signature),
+            "one_time": self.one_time,
+        }
+
+    @staticmethod
+    def from_json(obj: dict) -> PQPreKeyPublic:
+        try:
+            return PQPreKeyPublic(
+                key_id=int(obj["key_id"]),
+                public=b64d(obj["public"], expect_len=ENCODED_PQ_PUBLIC_LEN),
+                signature=b64d(obj["signature"], expect_len=ED25519_SIG_LEN),
+                one_time=bool(obj.get("one_time", False)),
+            )
+        except KeyError as exc:
+            raise InvalidEncodingError(f"PQ prekey missing field {exc}") from exc
 
 
 @dataclass
@@ -130,6 +194,7 @@ class PreKeyBundle:
     identity: IdentityPublic
     signed_prekey: SignedPreKeyPublic
     one_time_prekey: OneTimePreKeyPublic | None = None
+    pq_prekey: PQPreKeyPublic | None = None
 
     def verify(self) -> None:
         """Validate everything before any DH is performed.
@@ -142,9 +207,11 @@ class PreKeyBundle:
         self.signed_prekey.verify(self.identity)
         if self.one_time_prekey is not None:
             validate_x25519_public(self.one_time_prekey.public)
+        if self.pq_prekey is not None:
+            self.pq_prekey.verify(self.identity)
 
     def to_json(self) -> dict:
-        return {
+        obj = {
             "device_id": self.device_id,
             "identity": self.identity.to_json(),
             "signed_prekey": self.signed_prekey.to_json(),
@@ -152,16 +219,23 @@ class PreKeyBundle:
                 self.one_time_prekey.to_json() if self.one_time_prekey else None
             ),
         }
+        # Omitted rather than null when absent, so classical bundles keep
+        # their exact v1 encoding (and the v1 vectors stay valid).
+        if self.pq_prekey is not None:
+            obj["pq_prekey"] = self.pq_prekey.to_json()
+        return obj
 
     @staticmethod
     def from_json(obj: dict) -> PreKeyBundle:
         try:
             otp = obj.get("one_time_prekey")
+            pq = obj.get("pq_prekey")
             return PreKeyBundle(
                 device_id=str(obj["device_id"]),
                 identity=IdentityPublic.from_json(obj["identity"]),
                 signed_prekey=SignedPreKeyPublic.from_json(obj["signed_prekey"]),
                 one_time_prekey=OneTimePreKeyPublic.from_json(otp) if otp else None,
+                pq_prekey=PQPreKeyPublic.from_json(pq) if pq else None,
             )
         except KeyError as exc:
             raise InvalidEncodingError(f"prekey bundle missing field {exc}") from exc
@@ -190,6 +264,10 @@ class PreKeyStore:
         self._one_time: dict[int, PreKeyPrivate] = {}
         self._next_signed_id = 1
         self._next_one_time_id = 1
+        self._pq: dict[int, PQPreKeyPrivate] = {}
+        self._pq_signatures: dict[int, bytes] = {}
+        self._current_pq_last_resort: int | None = None
+        self._next_pq_id = 1
 
     # -- Signed prekeys ----------------------------------------------------
 
@@ -278,15 +356,79 @@ class PreKeyStore:
             )
         return record.private
 
+    # -- Post-quantum (ML-KEM-768) prekeys ----------------------------------
+
+    def _new_pq_prekey(self, last_resort: bool) -> PQPreKeyPublic:
+        key_id = self._next_pq_id
+        self._next_pq_id += 1
+        seed, ek = MLKEM768.generate(self._rng)
+        encoded = encode_pq_public(ek)
+        signature = self._identity.sign(pq_prekey_signing_input(key_id, encoded))
+        self._pq[key_id] = PQPreKeyPrivate(
+            key_id, seed, encoded, last_resort, int(self._clock())
+        )
+        self._pq_signatures[key_id] = signature
+        return PQPreKeyPublic(key_id, encoded, signature, one_time=not last_resort)
+
+    def rotate_pq_last_resort(self) -> PQPreKeyPublic:
+        """Replace the last-resort PQ prekey. The old private seed is retained
+        until pruned, so initial messages already in flight still decrypt."""
+        record = self._new_pq_prekey(last_resort=True)
+        self._current_pq_last_resort = record.key_id
+        return record
+
+    def current_pq_last_resort(self) -> PQPreKeyPublic:
+        if self._current_pq_last_resort is None:
+            return self.rotate_pq_last_resort()
+        key_id = self._current_pq_last_resort
+        return PQPreKeyPublic(
+            key_id, self._pq[key_id].public, self._pq_signatures[key_id], one_time=False
+        )
+
+    def generate_pq_one_time_prekeys(
+        self, count: int = PQ_ONE_TIME_PREKEY_BATCH
+    ) -> list[PQPreKeyPublic]:
+        return [self._new_pq_prekey(last_resort=False) for _ in range(count)]
+
+    def pq_one_time_prekey_count(self) -> int:
+        return sum(1 for k in self._pq.values() if not k.last_resort)
+
+    def consume_pq_prekey(self, key_id: int) -> bytes:
+        """Return the private seed for `key_id`, DESTROYING it if one-time.
+
+        The last-resort key is not destroyed: it must keep answering until it
+        is rotated. That reuse is the documented cost of a last-resort key.
+        """
+        record = self._pq.get(key_id)
+        if record is None:
+            raise PreKeyUnavailableError(
+                f"PQ prekey {key_id} unknown or already consumed"
+            )
+        if not record.last_resort:
+            del self._pq[key_id]
+            self._pq_signatures.pop(key_id, None)
+        return record.seed
+
     def publish_bundle(self, device_id: str) -> PreKeyBundle:
         """Build the bundle this device publishes to the relay."""
         one_time = None
         if self._one_time:
             first = min(self._one_time)
             one_time = OneTimePreKeyPublic(first, self._one_time[first].public)
+        pq = None
+        pq_one_time = [k for k in self._pq.values() if not k.last_resort]
+        if pq_one_time:
+            first_pq = min(pq_one_time, key=lambda k: k.key_id)
+            pq = PQPreKeyPublic(
+                first_pq.key_id, first_pq.public,
+                self._pq_signatures[first_pq.key_id], one_time=True,
+            )
+        elif self._current_pq_last_resort is not None:
+            pq = self.current_pq_last_resort()
         return PreKeyBundle(
             device_id=device_id,
             identity=self._identity.public(),
             signed_prekey=self.current_signed_prekey(),
             one_time_prekey=one_time,
+            pq_prekey=pq,
         )

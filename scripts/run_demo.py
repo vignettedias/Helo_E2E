@@ -38,6 +38,8 @@ REPO = Path(__file__).resolve().parents[1]
 WEB_BUILD = REPO / "mobile" / "build" / "web"
 RELAY = REPO / "backend" / "src" / "server.js"
 DATA = REPO / "backend" / "data"
+# Written by scripts/verify.py; the app's Verification dashboard fetches it.
+REPORT = REPO / "reports" / "verification.json"
 
 GREEN, YELLOW, DIM, BOLD, RESET = "\033[32m", "\033[33m", "\033[2m", "\033[1m", "\033[0m"
 
@@ -67,6 +69,22 @@ class StaticHandler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args) -> None:
         pass  # keep the console readable; the relay log is written to a file
+
+    def do_GET(self) -> None:
+        # The verification report lives outside the web build (it is produced
+        # by scripts/verify.py, not by flutter build), so serve it explicitly.
+        if self.path.split("?", 1)[0] == "/verification.json":
+            if not REPORT.is_file():
+                self.send_error(404, "No report yet: run python scripts/verify.py")
+                return
+            body = REPORT.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().do_GET()
 
 
 def lan_address() -> str | None:
@@ -114,13 +132,22 @@ def main() -> int:
                         help="comma-separated web ports, one per demo user (default 5000,5001)")
     parser.add_argument("--relay-port", type=int, default=8443)
     parser.add_argument("--lan", action="store_true",
-                        help="listen on all interfaces so phones on the same network can join")
+                        help="(unavailable) see the message printed when used")
     parser.add_argument("--build", action="store_true", help="run `flutter build web` first")
     parser.add_argument("--fresh", action="store_true", help="delete the demo relay database first")
     args = parser.parse_args()
 
     if os.name == "nt":
         os.system("")  # enable ANSI colours in the Windows console
+
+    if args.lan:
+        # Browsers expose WebCrypto (crypto.subtle), which the web client's key
+        # store needs, only in secure contexts: https:// pages or localhost.
+        # http://<LAN-IP> is neither, so a phone opening the demo over plain
+        # HTTP cannot create keys. Refuse rather than start a broken demo.
+        sys.exit("--lan is unavailable: browsers allow the web client's key storage only on "
+                 "https:// or localhost, and this demo serves plain HTTP. Use localhost on "
+                 "this machine. (Serving the demo over HTTPS is on the roadmap.)")
 
     if args.build:
         build_web()

@@ -2,6 +2,10 @@
     <!-- Release builds need this to reach the relay; the debug manifest alone
          is not merged into them. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Scanning a contact's verification QR code. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Recording voice messages (encrypted on the device before upload). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="Helo"
         android:name="${applicationName}"

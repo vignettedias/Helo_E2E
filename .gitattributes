@@ -1,0 +1,2 @@
+# Cross-implementation vectors must be byte-identical on every platform.
+tests/vectors/*.json text eol=lf

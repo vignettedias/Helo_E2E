@@ -1,13 +1,15 @@
-/// Application root: dependency wiring and routing.
+/// Application root: dependency wiring, theming and top-level routing.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'data/relay_client.dart';
-import 'domain/session_manager.dart';
+import 'domain/messenger.dart';
 import 'storage/crypto_storage.dart';
-import 'ui/screens/chat_list_screen.dart';
+import 'ui/screens/home_shell.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/theme.dart';
 
@@ -24,19 +26,11 @@ String get relayUrl {
   if (_relayOverride.isNotEmpty) return _relayOverride;
   if (kIsWeb) {
     final Uri page = Uri.base;
-    return page.scheme == 'https'
-        ? 'https://${page.host}'
-        : 'http://${page.host}:8443';
+    return page.scheme == 'https' ? 'https://${page.host}' : 'http://${page.host}:8443';
   }
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:8443';
-  }
+  if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:8443';
   return 'http://localhost:8443';
 }
-
-/// Widest the app renders. On a desktop browser the UI sits in a centred
-/// column rather than stretching chat bubbles across the whole screen.
-const double _maxAppWidth = 560;
 
 class HeloApp extends StatefulWidget {
   const HeloApp({super.key});
@@ -46,53 +40,47 @@ class HeloApp extends StatefulWidget {
 }
 
 class _HeloAppState extends State<HeloApp> {
-  late final CryptoStorage _storage;
-  late final RelayClient _relay;
-  SessionManager? _manager;
+  final CryptoStorage _storage = PlatformCryptoStorage();
+  final GlobalKey<NavigatorState> _navigator = GlobalKey<NavigatorState>();
+  late final RelayClient _relay = RelayClient(baseUrl: relayUrl);
+  Messenger? _messenger;
+  StreamSubscription<void>? _sub;
   bool _ready = false;
   String? _bootError;
 
   @override
   void initState() {
     super.initState();
-    _storage = PlatformCryptoStorage();
-    _relay = RelayClient(baseUrl: relayUrl);
     _bootstrap();
   }
 
   Future<void> _bootstrap() async {
     try {
-      final String? deviceId = await _readString(StorageKeys.deviceId);
-      if (deviceId != null) {
-        final SessionManager manager = SessionManager(
-          storage: _storage,
-          relay: _relay,
-          deviceId: deviceId,
-        );
-        if (await manager.restore()) _adopt(manager);
-      }
-    } catch (_) {
-      // Stored state that cannot be read is not repaired or guessed at. The
-      // user is told, and can reset the device to start cleanly.
+      final Messenger? m = await Messenger.restore(storage: _storage, relay: _relay);
+      if (m != null) _adopt(m);
+    } on Object {
+      // Stored key material that cannot be read is not repaired or guessed
+      // at. The user is told, and can reset the device to start cleanly.
       _bootError = 'Stored key material could not be read.';
     }
     if (mounted) setState(() => _ready = true);
   }
 
-  Future<String?> _readString(String key) async {
-    final List<int>? value = await _storage.get(key);
-    return value == null ? null : String.fromCharCodes(value);
-  }
-
-  void _adopt(SessionManager manager) {
-    manager.onReset = () {
-      if (mounted) setState(() => _manager = null);
-      manager.dispose();
+  void _adopt(Messenger m) {
+    _sub?.cancel();
+    // Rebuild on settings changes so the theme follows the user's choice.
+    _sub = m.changes.listen((_) {
+      if (mounted) setState(() {});
+    });
+    m.onReset = () {
+      _sub?.cancel();
+      // Reset can be triggered from a pushed screen (Settings): close every
+      // route so onboarding is what the user sees, not a stale settings page.
+      _navigator.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+      if (mounted) setState(() => _messenger = null);
     };
-    _manager = manager;
+    _messenger = m;
   }
-
-  void _onRegistered(SessionManager manager) => setState(() => _adopt(manager));
 
   Future<void> _wipeAfterBootError() async {
     await _storage.wipeAll();
@@ -101,45 +89,39 @@ class _HeloAppState extends State<HeloApp> {
 
   @override
   void dispose() {
-    _manager?.dispose();
+    _sub?.cancel();
+    unawaited(_messenger?.dispose());
     _relay.close();
     super.dispose();
   }
 
+  ThemeMode get _themeMode => switch (_messenger?.settings.theme) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+
   @override
   Widget build(BuildContext context) {
+    final Messenger? m = _messenger;
     return MaterialApp(
-      title: 'Helo',
+      navigatorKey: _navigator,
+      title: 'HELO',
       debugShowCheckedModeBanner: false,
-      theme: heloTheme(),
-      builder: (BuildContext context, Widget? child) => ColoredBox(
-        color: HeloColors.backdrop,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxAppWidth),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: MediaQuery.sizeOf(context).width > _maxAppWidth
-                    ? const Border.symmetric(
-                        vertical: BorderSide(color: HeloColors.border))
-                    : null,
-              ),
-              child: child,
-            ),
-          ),
-        ),
-      ),
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
+      themeMode: _themeMode,
       home: !_ready
           ? const _Splash()
           : _bootError != null
               ? _BootError(message: _bootError!, onReset: _wipeAfterBootError)
-              : _manager == null
+              : m == null
                   ? OnboardingScreen(
                       storage: _storage,
                       relay: _relay,
-                      onRegistered: _onRegistered,
+                      onReady: (Messenger fresh) => setState(() => _adopt(fresh)),
                     )
-                  : ChatListScreen(manager: _manager!),
+                  : HomeShell(key: ValueKey<String>(m.deviceId), messenger: m),
     );
   }
 }
@@ -148,21 +130,20 @@ class _Splash extends StatelessWidget {
   const _Splash();
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(Icons.lock_outline, size: 44, color: HeloColors.accent),
-              SizedBox(height: 16),
-              Text('helo', style: TextStyle(fontSize: 26, letterSpacing: 3)),
-              SizedBox(height: 8),
-              Text('unlocking key material',
-                  style: TextStyle(color: HeloColors.textFaint, fontSize: 12)),
-            ],
-          ),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
+    return Scaffold(
+      body: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+          Icon(Icons.lock_rounded, size: 44, color: p.accent),
+          const SizedBox(height: 16),
+          const Text('HELO', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: 4)),
+          const SizedBox(height: 8),
+          Text('Unlocking key material…', style: TextStyle(color: p.textFaint, fontSize: 12)),
+        ]),
+      ),
+    );
+  }
 }
 
 class _BootError extends StatelessWidget {
@@ -171,36 +152,28 @@ class _BootError extends StatelessWidget {
   final VoidCallback onReset;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.gpp_bad_outlined,
-                    size: 40, color: HeloColors.danger),
-                const SizedBox(height: 14),
-                Text(message, textAlign: TextAlign.center),
-                const SizedBox(height: 8),
-                const Text(
-                  'It is not repaired automatically: corrupt key material is '
-                  'treated as untrusted. Resetting destroys it and starts over.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: HeloColors.textFaint, fontSize: 12),
-                ),
-                const SizedBox(height: 20),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: HeloColors.danger,
-                    side: const BorderSide(color: HeloColors.danger),
-                  ),
-                  onPressed: onReset,
-                  child: const Text('Reset this device'),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+            Icon(Icons.gpp_bad_outlined, size: 40, color: p.danger),
+            const SizedBox(height: 14),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              'It is not repaired automatically: corrupt key material is treated as untrusted. '
+              'Resetting destroys it and starts over.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: p.textFaint, fontSize: 12),
             ),
-          ),
+            const SizedBox(height: 20),
+            OutlinedButton(onPressed: onReset, child: Text('Reset this device', style: TextStyle(color: p.danger))),
+          ]),
         ),
-      );
+      ),
+    );
+  }
 }

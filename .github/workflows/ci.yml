@@ -81,7 +81,7 @@ jobs:
         # Explicit file, not `node --test test/`. Node 22 resolves a bare
         # directory as a module path and fails with MODULE_NOT_FOUND.
         working-directory: backend
-        run: node --test test/relay.test.js
+        run: node --test test/relay.test.js test/relay_v2.test.js
 
   cross_stack:
     name: End-to-end across the real stack
@@ -229,6 +229,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # Messenger and chat-screen tests start the REAL relay
+      # (mobile/test/support/relay_harness.dart runs `node backend/src/server.js`).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

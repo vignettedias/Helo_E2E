@@ -13,7 +13,9 @@ This is the honest list. It is not minimised by assertion, and the phrase
 - Which account and device sent to which account and device
 - Session identifiers linking a conversation's traffic over time
 - Timing and frequency of every message
-- **Exact plaintext length** — ciphertext expansion is a constant 57 bytes
+- **Padded length**: messages are padded before encryption (block-256 by default), so the relay sees a
+  size bucket, not the exact length. Expansion after that is a constant 57 bytes. Measured leakage is in
+  `research/RESULTS.md` E1. The first message of each session is larger (PQXDH header)
 - Ratchet cadence and per-chain message counts
 - Delivery and acknowledgement state
 - Which one-time prekeys were consumed, and when
@@ -28,8 +30,21 @@ This is the honest list. It is not minimised by assertion, and the phrase
 ## The social graph is exposed
 
 Routing metadata reveals who talks to whom and when. For many users this is as
-sensitive as content. Helo does **not** implement sealed sender, padding, cover
+sensitive as content. Helo pads message sizes, but does **not** implement sealed sender, cover
 traffic, or mixing. A traffic-analysis adversary is not defended against.
+
+## Media on the device
+
+Voice messages are recorded on the device and encrypted like any attachment before upload. The relay
+sees only ciphertext size. Playing audio or video needs the decrypted media in a form the platform player
+accepts:
+- **web:** an in-memory Blob URL, revoked when the player closes;
+- **mobile/desktop:** a temporary plaintext file in the app's temp directory, deleted when the player
+  closes, and also deleted after a recording is read back. A crash during playback can leave that file
+  until the OS clears its temp directory.
+
+Verification QR codes are decoded on the device by a pure-Dart decoder. Camera frames and images are
+never uploaded, and no decoder script is loaded from a CDN.
 
 ## Retention
 

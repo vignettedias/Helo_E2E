@@ -1,0 +1,58 @@
+{
+  "experiment": "E2 hybrid vs classical handshake cost",
+  "environment": {
+    "python": "3.14.6",
+    "openssl": "OpenSSL 4.0.1 9 Jun 2026",
+    "machine": "AMD64",
+    "os": "Windows 11"
+  },
+  "runs": 300,
+  "classical": {
+    "kex": "x3dh-classical",
+    "initiator": {
+      "n": 300,
+      "median_ms": 0.49,
+      "mean_ms": 0.507,
+      "p95_ms": 0.604,
+      "min_ms": 0.467
+    },
+    "responder": {
+      "n": 300,
+      "median_ms": 0.475,
+      "mean_ms": 0.496,
+      "p95_ms": 0.608,
+      "min_ms": 0.452
+    },
+    "bundle_json_bytes": 549,
+    "first_envelope_json_bytes": 579,
+    "x3dh_header_json_bytes": 361
+  },
+  "hybrid": {
+    "kex": "pqxdh-mlkem768",
+    "initiator": {
+      "n": 300,
+      "median_ms": 0.67,
+      "mean_ms": 0.717,
+      "p95_ms": 0.977,
+      "min_ms": 0.614
+    },
+    "responder": {
+      "n": 300,
+      "median_ms": 0.661,
+      "mean_ms": 0.7,
+      "p95_ms": 0.893,
+      "min_ms": 0.607
+    },
+    "bundle_json_bytes": 2285,
+    "first_envelope_json_bytes": 2057,
+    "x3dh_header_json_bytes": 1839
+  },
+  "prekey_upload_json_bytes": {
+    "classical": 7226,
+    "hybrid": 43484,
+    "batch": {
+      "one_time": 100,
+      "pq_one_time": 20
+    }
+  }
+}

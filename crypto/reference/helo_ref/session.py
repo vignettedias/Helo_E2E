@@ -33,6 +33,7 @@ from enum import Enum
 
 from .encoding import b64d, b64e
 from .errors import (
+    DowngradeRejectedError,
     IdentityChangedError,
     InvalidStateTransitionError,
     SessionStateCorruptError,
@@ -40,6 +41,7 @@ from .errors import (
 )
 from .identity import IdentityKeyPair, IdentityPublic
 from .message import Envelope
+from .pqxdh import PQXDH
 from .prekeys import PreKeyBundle, PreKeyStore
 from .primitives import (
     AES256_KEY_LEN,
@@ -118,6 +120,9 @@ class Session:
     # Alice repeats the X3DH header until Bob demonstrably has the session.
     pending_x3dh: InitialMessageHeader | None = None
     used_one_time_prekey: bool = True
+    # Which establishment produced this session: "x3dh" or "pqxdh-mlkem768".
+    # Recorded so a client can SHOW the user which one protects a conversation.
+    kex: str = "x3dh"
 
     # -- state machine ------------------------------------------------------
 
@@ -214,6 +219,7 @@ class Session:
             ),
             "remote_identity_fingerprint": self.remote_identity.fingerprint()[:8].hex(),
             "used_one_time_prekey": self.used_one_time_prekey,
+            "key_establishment": self.kex,
         }
 
     # -- encrypted persistence ---------------------------------------------
@@ -229,6 +235,7 @@ class Session:
             "state": self.state.value,
             "verification": self.verification.value,
             "used_one_time_prekey": self.used_one_time_prekey,
+            "kex": self.kex,
             # Kept until the peer replies. Without it, a session started but not
             # yet used before a restart would send its first message with no
             # X3DH header, and the peer could never establish its side.
@@ -324,6 +331,7 @@ class Session:
                 state=SessionState(obj["state"]),
                 verification=VerificationStatus(obj["verification"]),
                 used_one_time_prekey=bool(obj["used_one_time_prekey"]),
+                kex=str(obj.get("kex", "x3dh")),
                 pending_x3dh=(
                     InitialMessageHeader.from_json(obj["pending_x3dh"])
                     if obj.get("pending_x3dh")
@@ -350,6 +358,11 @@ def start_as_initiator(
     """Alice starts a session against a bundle fetched from the relay.
 
     Works with Bob entirely offline: nothing here requires his participation.
+
+    The establishment scheme is the caller's EXPLICIT choice (`kex`). Passing
+    `PQXDH()` against a bundle with no PQ prekey raises rather than quietly
+    using X3DH; a client that wants to allow classical sessions must decide so
+    itself and say so to the user.
     """
     result, x3dh_header = kex.initiate(identity, bundle, rng)
     ratchet = init_initiator(
@@ -363,6 +376,7 @@ def start_as_initiator(
         associated_data=result.associated_data,
         pending_x3dh=x3dh_header,
         used_one_time_prekey=result.used_one_time_prekey,
+        kex=kex.id,
     )
 
 
@@ -371,12 +385,27 @@ def start_as_responder(
     local_device_id: str,
     prekeys: PreKeyStore,
     envelope: Envelope,
-    kex=DEFAULT_KEY_ESTABLISHMENT,
+    kex=None,
+    *,
+    accept_classical: bool = True,
 ) -> Session:
-    """Bob builds his side from Alice's first (prekey) message."""
+    """Bob builds his side from Alice's first (prekey) message.
+
+    The scheme is read from the initial header's version: v2 is PQXDH, v1 is
+    X3DH. `accept_classical=False` is the hybrid-required policy -- a classical
+    initial message is then refused with DowngradeRejectedError. (The default
+    stays permissive for the classical reference tests; the HELO 2.0 client
+    sets the strict policy.)
+    """
     if envelope.x3dh is None:
         raise UnknownSessionError(
             "cannot establish a session from a message without an X3DH header"
+        )
+    if kex is None:
+        kex = PQXDH() if envelope.x3dh.is_hybrid else DEFAULT_KEY_ESTABLISHMENT
+    if not envelope.x3dh.is_hybrid and not accept_classical:
+        raise DowngradeRejectedError(
+            "classical X3DH initial message refused: policy requires the hybrid handshake"
         )
     result: X3DHResult = kex.respond(identity, prekeys, envelope.x3dh)
     spk_priv = prekeys.signed_prekey_private(envelope.x3dh.signed_prekey_id)
@@ -388,4 +417,5 @@ def start_as_responder(
         ratchet=ratchet,
         associated_data=result.associated_data,
         used_one_time_prekey=result.used_one_time_prekey,
+        kex=kex.id,
     )

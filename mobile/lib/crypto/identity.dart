@@ -181,3 +181,46 @@ int compareBytes(List<int> a, List<int> b) {
 /// never import a new identity, or an attacker could inject one by QR.
 String qrPayload(IdentityPublic local, IdentityPublic remoteExpected) =>
     'helo:v1:${b64e(local.encode())}:${b64e(remoteExpected.encode())}';
+
+const String qrPrefix = 'helo:v1:';
+
+/// Codes far longer than two identity encodings are refused before decoding.
+const int qrMaxLength = 512;
+
+/// Outcome of comparing a scanned verification code — mirrors the reference
+/// `QrCheck`. Only [match] may lead to marking a device verified.
+enum QrCheck {
+  match('match'),
+
+  /// Not a Helo verification code at all.
+  notHelo('not_helo'),
+
+  /// The code's owner is not the key held for them (wrong person, or a key the
+  /// relay substituted).
+  peerKeyMismatch('peer_key_mismatch'),
+
+  /// They hold a different key for US: a man in the middle on our side.
+  ownKeyMismatch('own_key_mismatch');
+
+  const QrCheck(this.wire);
+  final String wire;
+}
+
+/// Compare a scanned code with the identities already held — mirrors the
+/// reference `check_qr_payload`. Nothing in the code is imported or trusted.
+QrCheck checkQrPayload(String scanned, {required IdentityPublic me, required IdentityPublic peer}) {
+  if (scanned.length > qrMaxLength || !scanned.startsWith(qrPrefix)) return QrCheck.notHelo;
+  final List<String> parts = scanned.substring(qrPrefix.length).split(':');
+  if (parts.length != 2) return QrCheck.notHelo;
+  final Uint8List theirSelf;
+  final Uint8List theirViewOfMe;
+  try {
+    theirSelf = b64d(parts[0]);
+    theirViewOfMe = b64d(parts[1]);
+  } on InvalidEncodingError {
+    return QrCheck.notHelo;
+  }
+  if (!constantTimeEquals(theirSelf, peer.encode())) return QrCheck.peerKeyMismatch;
+  if (!constantTimeEquals(theirViewOfMe, me.encode())) return QrCheck.ownKeyMismatch;
+  return QrCheck.match;
+}

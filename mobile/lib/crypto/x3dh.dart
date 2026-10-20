@@ -1,7 +1,7 @@
 /// X3DH asynchronous session establishment — port of `helo_ref/x3dh.py`.
 ///
-/// STATUS: Classical X3DH. NOT post-quantum secure. No PQ primitive appears in
-/// this file. See [KeyEstablishment] for the seam PQXDH will replace.
+/// Classical X3DH, plus the initial-message header shared with the hybrid
+/// PQXDH handshake (`pqxdh.dart`). No PQ primitive is used in this file.
 library;
 
 import 'dart:typed_data';
@@ -9,8 +9,14 @@ import 'dart:typed_data';
 import 'encoding.dart';
 import 'errors.dart';
 import 'identity.dart';
+import 'pq.dart';
 import 'prekeys.dart';
 import 'primitives.dart';
+
+/// Initial-header versions: v1 = classical X3DH, v2 = hybrid PQXDH (must carry
+/// the ML-KEM ciphertext). A header can never be half of each.
+const int headerVersionClassical = protocolVersion;
+const int headerVersionHybrid = 2;
 
 final Uint8List x3dhF = Uint8List.fromList(List<int>.filled(32, 0xFF));
 final Uint8List adContext = Uint8List.fromList('Helo_AD_v1'.codeUnits);
@@ -65,6 +71,8 @@ class InitialMessageHeader {
     required this.ephemeralPub,
     required this.signedPreKeyId,
     this.oneTimePreKeyId,
+    this.pqPreKeyId,
+    this.pqCiphertext,
   });
 
   final int version;
@@ -72,6 +80,10 @@ class InitialMessageHeader {
   final Uint8List ephemeralPub;
   final int signedPreKeyId;
   final int? oneTimePreKeyId;
+  final int? pqPreKeyId;
+  final Uint8List? pqCiphertext;
+
+  bool get isHybrid => version == headerVersionHybrid;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'version': version,
@@ -79,12 +91,38 @@ class InitialMessageHeader {
         'ephemeral_pub': b64e(ephemeralPub),
         'signed_prekey_id': signedPreKeyId,
         'one_time_prekey_id': oneTimePreKeyId,
+        if (pqCiphertext != null)
+          'pq': <String, dynamic>{
+            'key_id': pqPreKeyId,
+            'ct': b64e(pqCiphertext!),
+          },
       };
 
   static InitialMessageHeader fromJson(Map<String, dynamic> obj) {
     final Object? version = obj['version'];
-    if (version is! int || version != protocolVersion) {
+    if (version is! int ||
+        (version != headerVersionClassical && version != headerVersionHybrid)) {
       throw const InvalidEncodingError('unsupported X3DH header version');
+    }
+    // Version and KEM ciphertext must agree; a mismatched header is
+    // malformed, never "repaired" into either mode.
+    final Object? pq = obj['pq'];
+    if (version == headerVersionClassical && pq != null) {
+      throw const InvalidEncodingError('classical initial header carries PQ data');
+    }
+    if (version == headerVersionHybrid && pq is! Map<String, dynamic>) {
+      throw const InvalidEncodingError('hybrid initial header lacks PQ data');
+    }
+    int? pqId;
+    Uint8List? pqCt;
+    if (pq is Map<String, dynamic>) {
+      final Object? id = pq['key_id'];
+      final Object? ct = pq['ct'];
+      if (id is! int || ct is! String) {
+        throw const InvalidEncodingError('hybrid initial header is malformed');
+      }
+      pqId = id;
+      pqCt = b64d(ct, expectLen: mlKem768CtLen);
     }
     final Object? identity = obj['initiator_identity'];
     final Object? eph = obj['ephemeral_pub'];
@@ -99,6 +137,8 @@ class InitialMessageHeader {
       ephemeralPub: b64d(eph, expectLen: x25519KeyLen),
       signedPreKeyId: spk,
       oneTimePreKeyId: otp is int ? otp : null,
+      pqPreKeyId: pqId,
+      pqCiphertext: pqCt,
     );
   }
 }
@@ -176,6 +216,10 @@ Future<X3dhResult> x3dhRespond({
   required PreKeyStore prekeys,
   required InitialMessageHeader header,
 }) async {
+  if (header.isHybrid) {
+    throw const InvalidEncodingError(
+        'hybrid initial message passed to classical X3DH');
+  }
   await header.initiatorIdentity.verifyBinding();
 
   final Uint8List spkPriv =
@@ -204,18 +248,14 @@ Future<X3dhResult> x3dhRespond({
   );
 }
 
-/// The seam at which PQXDH replaces classical X3DH.
+/// The seam between session establishment and the Double Ratchet.
 ///
-/// The Double Ratchet consumes ONLY [X3dhResult.sharedSecret] and has no
-/// knowledge of how it was produced. A PQXDH implementation therefore:
-///   * encapsulates against Bob's published KEM public key (e.g. ML-KEM-768),
-///   * carries the KEM ciphertext in the initial header,
-///   * concatenates the KEM secret WITH the classical DH outputs — a hybrid
-///     construction, so a break in either primitive alone is not fatal,
-///   * uses info string `Helo_PQXDH_v1` so the schemes cannot collide.
-///
-/// Nothing in ratchet.dart or envelope.dart changes. That is the point.
+/// The ratchet consumes ONLY [X3dhResult.sharedSecret], so classical X3DH and
+/// hybrid PQXDH (`pqxdh.dart`) are interchangeable here; nothing in
+/// ratchet.dart or envelope.dart knows which produced the secret.
 abstract class KeyEstablishment {
+  /// Short id recorded on the session: `x3dh` or `pqxdh-mlkem768`.
+  String get id;
   String get name;
   bool get postQuantum;
   Future<InitiateOutcome> initiate({
@@ -232,6 +272,8 @@ abstract class KeyEstablishment {
 
 class ClassicalX3dh implements KeyEstablishment {
   const ClassicalX3dh();
+  @override
+  String get id => 'x3dh';
   @override
   String get name => 'X3DH-Curve25519-SHA256';
   @override

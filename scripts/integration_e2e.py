@@ -31,6 +31,7 @@ sys.path.insert(0, str(REPO / "crypto" / "reference"))
 
 from helo_ref.identity import IdentityKeyPair, safety_number
 from helo_ref.message import Envelope
+from helo_ref.pqxdh import PQXDH
 from helo_ref.prekeys import PreKeyBundle, PreKeyStore
 from helo_ref.session import Session, start_as_initiator, start_as_responder
 
@@ -129,15 +130,25 @@ class Client:
         }, token=self.account_token)
         self.device_token = dev["device_token"]
 
-    def publish_prekeys(self, count: int = 20) -> int:
+    def publish_prekeys(self, count: int = 20, pq_count: int = 5) -> int:
         self.prekeys.rotate_signed_prekey()
         one_time = self.prekeys.generate_one_time_prekeys(count)
+        pq_last_resort = self.prekeys.rotate_pq_last_resort()
+        pq_one_time = self.prekeys.generate_pq_one_time_prekeys(pq_count)
+
+        def relay_form(k):  # the relay stores the signed key, not the one_time flag
+            return {"key_id": k.key_id, "public": k.to_json()["public"],
+                    "signature": k.to_json()["signature"]}
+
         status, body = self.relay.request("POST", "/prekeys", {
             "device_id": self.device_id,
             "signed_prekey": self.prekeys.current_signed_prekey().to_json(),
             "one_time_prekeys": [o.to_json() for o in one_time],
+            "pq_last_resort": relay_form(pq_last_resort),
+            "pq_one_time_prekeys": [relay_form(k) for k in pq_one_time],
         }, token=self.account_token)
         assert status == 200, body
+        self.pq_available = body["available_pq_one_time_prekeys"]
         return body["available_one_time_prekeys"]
 
     def start_session_with(self, peer_device_id: str):
@@ -149,8 +160,10 @@ class Client:
             "identity": body["identity"],
             "signed_prekey": body["signed_prekey"],
             "one_time_prekey": body["one_time_prekey"],
+            "pq_prekey": body["pq_prekey"],
         })
-        session = start_as_initiator(self.identity, self.device_id, bundle)
+        # HELO 2.0 policy: hybrid establishment, no classical fallback.
+        session = start_as_initiator(self.identity, self.device_id, bundle, kex=PQXDH())
         self.sessions[peer_device_id] = session
         return session, body["one_time_prekey_available"]
 
@@ -159,7 +172,7 @@ class Client:
         status, body = self.relay.request("POST", "/messages", {
             "recipient_device_id": peer_device_id,
             "envelope": envelope.to_json(),
-        }, token=self.account_token)
+        }, token=self.device_token)  # sending is bound to the authenticated device
         assert status == 202, body
         return body["message_id"]
 
@@ -172,7 +185,8 @@ class Client:
             sender = item["sender_device_id"]
             if sender not in self.sessions:
                 self.sessions[sender] = start_as_responder(
-                    self.identity, self.device_id, self.prekeys, envelope)
+                    self.identity, self.device_id, self.prekeys, envelope,
+                    accept_classical=False)
             plaintext = self.sessions[sender].decrypt(envelope)
             out.append((sender, plaintext))
             ack.append(item["message_id"])
@@ -199,11 +213,15 @@ def main() -> int:
         check("both accounts and devices registered", True)
         available = bob.publish_prekeys(20)
         check("Bob published prekeys", available == 20, f"{available} one-time prekeys")
+        check("Bob published signed ML-KEM-768 prekeys", bob.pq_available == 5,
+              f"{bob.pq_available} one-time + 1 last-resort")
 
         section("2. Asynchronous session establishment (Bob never online)")
         session, otp_used = alice.start_session_with("bob-device-1")
         check("Alice fetched Bob's bundle and built a session", session is not None)
         check("one-time prekey was consumed (four-DH, not downgraded)", otp_used)
+        check("session uses the hybrid PQXDH handshake (X25519 + ML-KEM-768)",
+              session.kex == "pqxdh-mlkem768", session.kex)
 
         section("3. First message relayed while Bob is offline")
         alice.send("bob-device-1", SECRET_CANARY.encode())
@@ -286,6 +304,11 @@ def main() -> int:
               bob.identity.dh_priv not in raw_bytes and
               bob.identity.sig_seed not in raw_bytes)
 
+        pq_seeds = [k.seed for k in bob.prekeys._pq.values()]
+        check("no ML-KEM private seed in database",
+              pq_seeds and all(seed not in raw_bytes for seed in pq_seeds),
+              f"{len(pq_seeds)} seeds checked")
+
         alice_ratchet = alice.sessions["bob-device-1"].ratchet
         check("no ratchet root key in database", alice_ratchet.root_key not in raw_bytes)
         check("no ratchet private key in database",
@@ -340,6 +363,26 @@ def main() -> int:
             check("replayed ciphertext rejected", False, "it was ACCEPTED")
         except ReplayError:
             check("replayed ciphertext rejected with ReplayError", True)
+
+        section("11. Sender impersonation through the relay")
+        mallory = Client(relay, "mallory", "mallory-device-1")
+        mallory.register()
+        forged = alice.sessions["bob-device-1"].encrypt(b"forged sender attempt")
+        forged_json = forged.to_json()
+        status, body = relay.request("POST", "/messages", {
+            "recipient_device_id": "bob-device-1",
+            "envelope": forged_json,  # names alice-device-1 as the sender
+        }, token=mallory.device_token)
+        check("relay refuses an envelope naming another device as sender",
+              status == 403 and body.get("error") == "sender_mismatch", f"HTTP {status}")
+        alice.send("bob-device-1", b"who sent this?")
+        status, body = relay.request("GET", "/messages", token=bob.device_token)
+        item = body["messages"][-1]
+        check("sender username is asserted by the relay, not the envelope",
+              item.get("sender_username") == "alice", str(item.get("sender_username")))
+        relay.request("POST", "/delivery/ack",
+                      {"message_ids": [m["message_id"] for m in body["messages"]]},
+                      token=bob.device_token)
 
     finally:
         relay.stop()

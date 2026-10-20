@@ -17,19 +17,89 @@ import 'dart:typed_data';
 import 'encoding.dart';
 import 'errors.dart';
 import 'identity.dart';
+import 'pq.dart';
 import 'primitives.dart';
 
 final Uint8List signedPreKeyContext =
     Uint8List.fromList('Helo_SignedPreKey_v1'.codeUnits);
+final Uint8List pqPreKeyContext =
+    Uint8List.fromList('Helo_PQPreKey_v1'.codeUnits);
 
 const int signedPreKeyRotationSeconds = 7 * 24 * 60 * 60;
 const int signedPreKeyRetentionSeconds = 30 * 24 * 60 * 60;
 const int oneTimePreKeyBatch = 100;
 const int oneTimePreKeyLowWatermark = 20;
+// ML-KEM public keys are ~1.2 KB each, so the one-time batch is smaller.
+const int pqOneTimePreKeyBatch = 20;
+const int pqOneTimePreKeyLowWatermark = 5;
 
 /// Exactly what IK_sig signs. Includes the key id, to prevent id swapping.
 Uint8List signedPreKeySigningInput(int keyId, List<int> publicKey) =>
     concat(<List<int>>[signedPreKeyContext, u32(keyId), lp(publicKey)]);
+
+/// What IK_sig signs for a PQ prekey. [encodedPublic] carries the KEM id, so
+/// the signature also fixes which KEM the key belongs to.
+Uint8List pqPreKeySigningInput(int keyId, List<int> encodedPublic) =>
+    concat(<List<int>>[pqPreKeyContext, u32(keyId), lp(encodedPublic)]);
+
+/// An ML-KEM prekey. SECRET: [seed] is the FIPS 203 (d ‖ z) private key.
+class PqPreKeyPrivate {
+  const PqPreKeyPrivate(
+      this.keyId, this.seed, this.encodedPublic, this.lastResort, this.createdAt);
+  final int keyId;
+  final Uint8List seed;
+  final Uint8List encodedPublic;
+  final bool lastResort;
+  final int createdAt;
+}
+
+class PqPreKeyPublic {
+  const PqPreKeyPublic({
+    required this.keyId,
+    required this.encodedPublic,
+    required this.signature,
+    required this.oneTime,
+  });
+
+  final int keyId;
+  final Uint8List encodedPublic; // Encode(PQPK) = KEM id ‖ ek
+  final Uint8List signature;
+  final bool oneTime;
+
+  /// Check the encoding and the IK_sig signature. Fails closed.
+  Future<void> verify(IdentityPublic identity) async {
+    decodePqPublic(encodedPublic);
+    await ed25519Verify(
+      identity.sigPub,
+      signature,
+      pqPreKeySigningInput(keyId, encodedPublic),
+    );
+  }
+
+  Uint8List get encapsulationKey => decodePqPublic(encodedPublic);
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'key_id': keyId,
+        'public': b64e(encodedPublic),
+        'signature': b64e(signature),
+        'one_time': oneTime,
+      };
+
+  static PqPreKeyPublic fromJson(Map<String, dynamic> obj) {
+    final Object? keyId = obj['key_id'];
+    final Object? pub = obj['public'];
+    final Object? sig = obj['signature'];
+    if (keyId is! int || pub is! String || sig is! String) {
+      throw const InvalidEncodingError('PQ prekey is missing a field');
+    }
+    return PqPreKeyPublic(
+      keyId: keyId,
+      encodedPublic: b64d(pub, expectLen: encodedPqPublicLen),
+      signature: b64d(sig, expectLen: ed25519SigLen),
+      oneTime: obj['one_time'] == true,
+    );
+  }
+}
 
 class PreKeyPrivate {
   const PreKeyPrivate(this.keyId, this.privateKey, this.publicKey, this.createdAt);
@@ -109,12 +179,14 @@ class PreKeyBundle {
     required this.identity,
     required this.signedPreKey,
     this.oneTimePreKey,
+    this.pqPreKey,
   });
 
   final String deviceId;
   final IdentityPublic identity;
   final SignedPreKeyPublic signedPreKey;
   final OneTimePreKeyPublic? oneTimePreKey;
+  final PqPreKeyPublic? pqPreKey;
 
   /// Validate everything before any DH is performed.
   ///
@@ -127,6 +199,7 @@ class PreKeyBundle {
     if (oneTimePreKey != null) {
       validateX25519Public(oneTimePreKey!.publicKey);
     }
+    if (pqPreKey != null) await pqPreKey!.verify(identity);
   }
 
   static PreKeyBundle fromJson(Map<String, dynamic> obj) {
@@ -139,6 +212,7 @@ class PreKeyBundle {
       throw const InvalidEncodingError('prekey bundle is missing a field');
     }
     final Object? otp = obj['one_time_prekey'];
+    final Object? pq = obj['pq_prekey'];
     return PreKeyBundle(
       deviceId: deviceId,
       identity: IdentityPublic.fromJson(identity),
@@ -146,6 +220,7 @@ class PreKeyBundle {
       oneTimePreKey: otp is Map<String, dynamic>
           ? OneTimePreKeyPublic.fromJson(otp)
           : null,
+      pqPreKey: pq is Map<String, dynamic> ? PqPreKeyPublic.fromJson(pq) : null,
     );
   }
 }
@@ -168,6 +243,11 @@ class PreKeyStore {
   int? _currentSignedId;
   int _nextSignedId = 1;
   int _nextOneTimeId = 1;
+
+  final Map<int, PqPreKeyPrivate> _pq = <int, PqPreKeyPrivate>{};
+  final Map<int, Uint8List> _pqSignatures = <int, Uint8List>{};
+  int? _currentPqLastResort;
+  int _nextPqId = 1;
 
   Future<SignedPreKeyPublic> rotateSignedPreKey() async {
     final int keyId = _nextSignedId++;
@@ -258,6 +338,74 @@ class PreKeyStore {
     return record.privateKey;
   }
 
+  // --- Post-quantum (ML-KEM-768) prekeys -----------------------------------
+
+  Future<PqPreKeyPublic> _newPqPreKey({required bool lastResort}) async {
+    final int keyId = _nextPqId++;
+    final (Uint8List seed, Uint8List ek) = MlKem768.generate(_rng);
+    final Uint8List encoded = encodePqPublic(ek);
+    final Uint8List signature =
+        await _identity.sign(pqPreKeySigningInput(keyId, encoded));
+    _pq[keyId] = PqPreKeyPrivate(keyId, seed, encoded, lastResort, _clock());
+    _pqSignatures[keyId] = signature;
+    return PqPreKeyPublic(
+      keyId: keyId,
+      encodedPublic: encoded,
+      signature: signature,
+      oneTime: !lastResort,
+    );
+  }
+
+  /// Replace the last-resort PQ prekey. The old seed is retained until
+  /// pruned, so initial messages already in flight still decrypt.
+  Future<PqPreKeyPublic> rotatePqLastResort() async {
+    final PqPreKeyPublic record = await _newPqPreKey(lastResort: true);
+    _currentPqLastResort = record.keyId;
+    return record;
+  }
+
+  PqPreKeyPublic? get currentPqLastResort {
+    final int? id = _currentPqLastResort;
+    if (id == null) return null;
+    return PqPreKeyPublic(
+      keyId: id,
+      encodedPublic: _pq[id]!.encodedPublic,
+      signature: _pqSignatures[id]!,
+      oneTime: false,
+    );
+  }
+
+  Future<List<PqPreKeyPublic>> generatePqOneTimePreKeys([
+    int count = pqOneTimePreKeyBatch,
+  ]) async {
+    final List<PqPreKeyPublic> out = <PqPreKeyPublic>[];
+    for (int i = 0; i < count; i++) {
+      out.add(await _newPqPreKey(lastResort: false));
+    }
+    return out;
+  }
+
+  int get pqOneTimePreKeyCount =>
+      _pq.values.where((PqPreKeyPrivate k) => !k.lastResort).length;
+  bool get needsPqReplenishment =>
+      pqOneTimePreKeyCount < pqOneTimePreKeyLowWatermark;
+  bool get hasPqLastResort => _currentPqLastResort != null;
+
+  /// Return the seed for [keyId], DESTROYING it if one-time. The last-resort
+  /// key keeps answering until rotated — the documented cost of having one.
+  Uint8List consumePqPreKey(int keyId) {
+    final PqPreKeyPrivate? record = _pq[keyId];
+    if (record == null) {
+      throw PreKeyUnavailableError(
+          'PQ prekey $keyId unknown or already consumed');
+    }
+    if (!record.lastResort) {
+      _pq.remove(keyId);
+      _pqSignatures.remove(keyId);
+    }
+    return record.seed;
+  }
+
   /// Snapshot of every prekey private half, for secure storage ONLY.
   ///
   /// The id counters are persisted explicitly rather than recomputed from the
@@ -284,6 +432,18 @@ class PreKeyStore {
               })
           .toList(),
       'one_time': _oneTime.values.map(priv).toList(),
+      'pq': _pq.values
+          .map((PqPreKeyPrivate k) => <String, Object?>{
+                'key_id': k.keyId,
+                'seed': b64e(k.seed),
+                'public': b64e(k.encodedPublic),
+                'signature': b64e(_pqSignatures[k.keyId]!),
+                'last_resort': k.lastResort,
+                'created_at': k.createdAt,
+              })
+          .toList(),
+      'current_pq_last_resort': _currentPqLastResort,
+      'next_pq_id': _nextPqId,
     };
   }
 
@@ -324,6 +484,22 @@ class PreKeyStore {
       store._currentSignedId = obj['current_signed_id'] as int?;
       store._nextSignedId = obj['next_signed_id']! as int;
       store._nextOneTimeId = obj['next_one_time_id']! as int;
+      // PQ fields are absent in states written before HELO 2.0.
+      for (final Object? raw in (obj['pq'] as List<Object?>?) ?? <Object?>[]) {
+        final Map<String, dynamic> e = raw! as Map<String, dynamic>;
+        final int id = e['key_id']! as int;
+        store._pq[id] = PqPreKeyPrivate(
+          id,
+          b64d(e['seed']! as String, expectLen: mlKemSeedLen),
+          b64d(e['public']! as String, expectLen: encodedPqPublicLen),
+          e['last_resort']! as bool,
+          e['created_at']! as int,
+        );
+        store._pqSignatures[id] =
+            b64d(e['signature']! as String, expectLen: ed25519SigLen);
+      }
+      store._currentPqLastResort = obj['current_pq_last_resort'] as int?;
+      store._nextPqId = (obj['next_pq_id'] as int?) ?? 1;
     } on SessionStateCorruptError {
       rethrow;
     } catch (_) {
@@ -332,6 +508,10 @@ class PreKeyStore {
     if (store._currentSignedId != null &&
         !store._signed.containsKey(store._currentSignedId)) {
       throw const SessionStateCorruptError('current signed prekey is missing');
+    }
+    if (store._currentPqLastResort != null &&
+        !store._pq.containsKey(store._currentPqLastResort)) {
+      throw const SessionStateCorruptError('current PQ last-resort key is missing');
     }
     return store;
   }

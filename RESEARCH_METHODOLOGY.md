@@ -99,22 +99,24 @@ lands in a real database first.
 
 ## Results
 
+Current per-test results are produced by `python scripts/verify.py`, written to `reports/verification.json`
+(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (388/388):
+
 | Suite | Count | Status |
 |---|---|---|
-| Unit (protocol) | 38 | pass |
-| Unit (security properties) | 9 | pass |
-| Adversarial | 29 | pass |
-| Property-based (Hypothesis) | 13 | pass |
+| Python unit (protocol, PQXDH, padding, attachments, QR verdict) | 144 | pass |
+| Adversarial (incl. PQ downgrade / KEM tampering) | 49 | pass |
+| Property-based (Hypothesis) | 18 | pass |
 | Integration / vector conformance | 10 | pass |
-| Relay backend | 25 | pass |
-| Cross-stack end-to-end | 24 checks | pass |
-| Dart vector conformance | 22 | pass |
-| Dart SessionManager (restart, expiry, crash-before-send, forgery) | 6 | pass |
+| Vectors reproduce byte-exactly | 1 | pass |
+| Relay backend (v1 + v2 API) | 44 | pass |
+| Cross-stack end-to-end (PQXDH, DB inspection) | 29 checks | pass |
+| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode) | 91 | pass |
 
-Measured: ciphertext expansion is a **constant 57 bytes** (16-byte tag +
-41-byte header) from 0 B to 16 KB. Timing figures are in
-`docs/benchmarks/reference-implementation.json`, disclaimed as
-reference-implementation-on-desktop and **not** mobile performance.
+Measured experiments (padding overhead and leakage, hybrid vs classical handshake cost, relay metadata
+inventory) are in `research/RESULTS.md`, with methods in `research/EXPERIMENTS.md`. Earlier timing figures in
+`docs/benchmarks/reference-implementation.json` remain disclaimed as reference-implementation-on-desktop and
+**not** mobile performance.
 
 ### Defects found by the methodology
 
@@ -149,13 +151,40 @@ Recorded because a methodology's value is measured by what it catches:
    the device-id key, and prekeys, tokens and sessions were never reloaded.
    Found only by actually running the app across a restart.
 
+9. **Sender impersonation at the relay (audit finding A1)** — any authenticated account could queue an
+   envelope claiming another device as sender. Sending now requires a device token and the relay checks
+   `envelope.sender_device_id` against it; `scripts/integration_e2e.py` section 11 attempts the impersonation.
+10. **UI and poll loop raced on the ratchet** — a send from the UI and a decrypt from the receive loop could
+    read and write the same session concurrently, rolling one state change back. All ratchet operations now
+    run under one `AsyncLock`; with the lock disabled the "concurrent sends" test fails 3/3.
+11. **First message to a new device hung forever** — a de-duplication fix for prekey-bundle fetches used
+    `.whenComplete(() => map.remove(id))`, which returns the very future being completed, so it awaited
+    itself. Found by the first widget test that sent a message under the Flutter test binding; the
+    Messenger suite had last run before the change.
+12. **UI defects found by driving the web build** — the actions sheet overflowed on short windows; the
+    message banner never dismissed (a SnackBar with an action persists by default); delete-for-everyone had
+    no confirmation; the chat title was squeezed to nothing at phone width; after "Reset this device" the
+    Settings page stayed on top of onboarding. Each is fixed; the sheet overflow and the delete
+    confirmation have widget tests, and the rest were re-checked in the browser.
+
+13. **Attachments without a caption were silently dropped** — the sender encoded an empty body as `""`
+    and the receiver's strict decoder rejected empty strings, discarding the whole message. Every earlier
+    attachment test used a caption, so nothing caught it until a voice-message test sent none. Fixed in
+    the decoder (older senders already put `""` on the wire), with a regression test that fails when
+    the fix is reverted.
+
 Defect 2 is the most instructive: a correctness bug *masked by a security
 feature*. Only a test that drove the whole stack and checked ordering directly
 could surface it.
 
 ## Limitations
 
-- **Not post-quantum.** No PQ primitive exists in the codebase.
+- **Post-quantum only at key establishment.** PQXDH (X25519 + ML-KEM-768) protects the initial shared
+  secret against harvest-now-decrypt-later; the double ratchet that follows is classical, so a quantum
+  adversary who records traffic can attack ratchet steps after the first. ML-KEM is OpenSSL's in the Python
+  reference and the `pqcrypto` Dart package in the client (checked against OpenSSL in tests, not audited).
+- **Metadata is visible to the relay.** It sees who sends to whom, when, and padded sizes (see
+  `research/RESULTS.md`, E3); there is no sealed sender or mixing.
 - **Vectors are self-generated.** They prove internal consistency and
   reproducibility, not conformance to Signal's published specification.
   Interoperability with libsignal is not claimed or tested.
@@ -172,7 +201,7 @@ could surface it.
 
 ## Future work
 
-1. PQXDH via the existing `KeyEstablishment` seam (hybrid ML-KEM-768 + X25519).
+1. ~~PQXDH via the `KeyEstablishment` seam~~ — done in HELO 2.0. Next: a post-quantum ratchet component.
 2. Symbolic verification of the handshake and ratchet in Tamarin.
 3. Mobile benchmarking on physical handsets.
 4. Sealed sender and padding to address the metadata exposure in T8.

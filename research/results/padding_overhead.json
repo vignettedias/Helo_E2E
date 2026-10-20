@@ -1,0 +1,326 @@
+{
+  "experiment": "E1 padding overhead vs length leakage",
+  "seed": 20261016,
+  "python": "3.14.6",
+  "distributions": {
+    "uniform_1_1024": {
+      "none": {
+        "mean_input": 512.5,
+        "mean_padded": 513.5,
+        "mean_overhead_bytes": 1.0,
+        "mean_overhead_pct": 0.2,
+        "max_overhead_ratio": 2.0,
+        "distinct_sizes": 1024,
+        "leakage_bits": 10.0,
+        "mean_anonymity_set": 1.0
+      },
+      "block-160": {
+        "mean_input": 512.5,
+        "mean_padded": 595.94,
+        "mean_overhead_bytes": 83.44,
+        "mean_overhead_pct": 16.28,
+        "max_overhead_ratio": 160.0,
+        "distinct_sizes": 7,
+        "leakage_bits": 2.762,
+        "mean_anonymity_set": 146.29
+      },
+      "block-256": {
+        "mean_input": 512.5,
+        "mean_padded": 641.0,
+        "mean_overhead_bytes": 128.5,
+        "mean_overhead_pct": 25.07,
+        "max_overhead_ratio": 256.0,
+        "distinct_sizes": 5,
+        "leakage_bits": 2.009,
+        "mean_anonymity_set": 204.8
+      },
+      "pow2-256": {
+        "mean_input": 512.5,
+        "mean_padded": 705.75,
+        "mean_overhead_bytes": 193.25,
+        "mean_overhead_pct": 37.71,
+        "max_overhead_ratio": 256.0,
+        "distinct_sizes": 4,
+        "leakage_bits": 1.509,
+        "mean_anonymity_set": 256.0
+      },
+      "padme": {
+        "mean_input": 512.5,
+        "mean_padded": 524.4,
+        "mean_overhead_bytes": 11.9,
+        "mean_overhead_pct": 2.32,
+        "max_overhead_ratio": 2.0,
+        "distinct_sizes": 76,
+        "leakage_bits": 5.727,
+        "mean_anonymity_set": 13.47
+      }
+    },
+    "short_chat_lognormal": {
+      "none": {
+        "mean_input": 79.86,
+        "mean_padded": 80.86,
+        "mean_overhead_bytes": 1.0,
+        "mean_overhead_pct": 1.25,
+        "max_overhead_ratio": 2.0,
+        "distinct_sizes": 960,
+        "leakage_bits": 7.636,
+        "mean_anonymity_set": 1.0
+      },
+      "block-160": {
+        "mean_input": 79.86,
+        "mean_padded": 187.2,
+        "mean_overhead_bytes": 107.33,
+        "mean_overhead_pct": 134.4,
+        "max_overhead_ratio": 160.0,
+        "distinct_sizes": 17,
+        "leakage_bits": 0.67,
+        "mean_anonymity_set": 56.47
+      },
+      "block-256": {
+        "mean_input": 79.86,
+        "mean_padded": 271.95,
+        "mean_overhead_bytes": 192.09,
+        "mean_overhead_pct": 240.52,
+        "max_overhead_ratio": 256.0,
+        "distinct_sizes": 11,
+        "leakage_bits": 0.326,
+        "mean_anonymity_set": 87.27
+      },
+      "pow2-256": {
+        "mean_input": 79.86,
+        "mean_padded": 274.4,
+        "mean_overhead_bytes": 194.54,
+        "mean_overhead_pct": 243.6,
+        "max_overhead_ratio": 256.0,
+        "distinct_sizes": 5,
+        "leakage_bits": 0.318,
+        "mean_anonymity_set": 192.0
+      },
+      "padme": {
+        "mean_input": 79.86,
+        "mean_padded": 83.62,
+        "mean_overhead_bytes": 3.76,
+        "mean_overhead_pct": 4.71,
+        "max_overhead_ratio": 2.0,
+        "distinct_sizes": 93,
+        "leakage_bits": 5.443,
+        "mean_anonymity_set": 10.32
+      }
+    }
+  },
+  "wire_check": {
+    "ciphertext_equals_padded_plus_16": true,
+    "rows": [
+      {
+        "policy": "none",
+        "payload_len": 1,
+        "padded_len": 2,
+        "ciphertext_len": 18,
+        "envelope_json_bytes": 2053
+      },
+      {
+        "policy": "none",
+        "payload_len": 15,
+        "padded_len": 16,
+        "ciphertext_len": 32,
+        "envelope_json_bytes": 2073
+      },
+      {
+        "policy": "none",
+        "payload_len": 100,
+        "padded_len": 101,
+        "ciphertext_len": 117,
+        "envelope_json_bytes": 2185
+      },
+      {
+        "policy": "none",
+        "payload_len": 255,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "none",
+        "payload_len": 256,
+        "padded_len": 257,
+        "ciphertext_len": 273,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "none",
+        "payload_len": 700,
+        "padded_len": 701,
+        "ciphertext_len": 717,
+        "envelope_json_bytes": 2985
+      },
+      {
+        "policy": "block-160",
+        "payload_len": 1,
+        "padded_len": 160,
+        "ciphertext_len": 176,
+        "envelope_json_bytes": 2265
+      },
+      {
+        "policy": "block-160",
+        "payload_len": 15,
+        "padded_len": 160,
+        "ciphertext_len": 176,
+        "envelope_json_bytes": 2265
+      },
+      {
+        "policy": "block-160",
+        "payload_len": 100,
+        "padded_len": 160,
+        "ciphertext_len": 176,
+        "envelope_json_bytes": 2265
+      },
+      {
+        "policy": "block-160",
+        "payload_len": 255,
+        "padded_len": 320,
+        "ciphertext_len": 336,
+        "envelope_json_bytes": 2477
+      },
+      {
+        "policy": "block-160",
+        "payload_len": 256,
+        "padded_len": 320,
+        "ciphertext_len": 336,
+        "envelope_json_bytes": 2477
+      },
+      {
+        "policy": "block-160",
+        "payload_len": 700,
+        "padded_len": 800,
+        "ciphertext_len": 816,
+        "envelope_json_bytes": 3117
+      },
+      {
+        "policy": "block-256",
+        "payload_len": 1,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "block-256",
+        "payload_len": 15,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "block-256",
+        "payload_len": 100,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "block-256",
+        "payload_len": 255,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "block-256",
+        "payload_len": 256,
+        "padded_len": 512,
+        "ciphertext_len": 528,
+        "envelope_json_bytes": 2733
+      },
+      {
+        "policy": "block-256",
+        "payload_len": 700,
+        "padded_len": 768,
+        "ciphertext_len": 784,
+        "envelope_json_bytes": 3077
+      },
+      {
+        "policy": "pow2-256",
+        "payload_len": 1,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "pow2-256",
+        "payload_len": 15,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "pow2-256",
+        "payload_len": 100,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "pow2-256",
+        "payload_len": 255,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "pow2-256",
+        "payload_len": 256,
+        "padded_len": 512,
+        "ciphertext_len": 528,
+        "envelope_json_bytes": 2733
+      },
+      {
+        "policy": "pow2-256",
+        "payload_len": 700,
+        "padded_len": 1024,
+        "ciphertext_len": 1040,
+        "envelope_json_bytes": 3417
+      },
+      {
+        "policy": "padme",
+        "payload_len": 1,
+        "padded_len": 2,
+        "ciphertext_len": 18,
+        "envelope_json_bytes": 2053
+      },
+      {
+        "policy": "padme",
+        "payload_len": 15,
+        "padded_len": 16,
+        "ciphertext_len": 32,
+        "envelope_json_bytes": 2073
+      },
+      {
+        "policy": "padme",
+        "payload_len": 100,
+        "padded_len": 104,
+        "ciphertext_len": 120,
+        "envelope_json_bytes": 2189
+      },
+      {
+        "policy": "padme",
+        "payload_len": 255,
+        "padded_len": 256,
+        "ciphertext_len": 272,
+        "envelope_json_bytes": 2393
+      },
+      {
+        "policy": "padme",
+        "payload_len": 256,
+        "padded_len": 272,
+        "ciphertext_len": 288,
+        "envelope_json_bytes": 2413
+      },
+      {
+        "policy": "padme",
+        "payload_len": 700,
+        "padded_len": 704,
+        "ciphertext_len": 720,
+        "envelope_json_bytes": 2989
+      }
+    ]
+  }
+}

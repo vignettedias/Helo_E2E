@@ -32,8 +32,8 @@ Summary of what is claimed:
 | Bounded resource consumption | ✅ checked before derivation |
 | Fail-closed behaviour | ✅ no plaintext fallback exists |
 | Identity verification | 🟡 detectable, but TOFU on first contact |
-| Metadata privacy | ❌ not provided — enumerated in PRIVACY.md |
-| Post-quantum security | ❌ not implemented, not claimed |
+| Metadata privacy | 🟡 sizes padded into buckets (measured, research/RESULTS.md E1); who-talks-to-whom and timing still visible (E3) |
+| Post-quantum security | 🟡 hybrid X25519 + ML-KEM-768 at session establishment, no silent downgrade; the ratchet is classical |
 
 ## Running the security tests
 

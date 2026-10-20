@@ -1,0 +1,234 @@
+{
+  "experiment": "E3 relay metadata inventory",
+  "messages": 6,
+  "schema": {
+    "accounts": {
+      "account_id": "METADATA",
+      "username": "METADATA",
+      "password_hash": "SECRET",
+      "password_salt": "SECRET",
+      "created_at": "METADATA"
+    },
+    "devices": {
+      "device_id": "METADATA",
+      "account_id": "METADATA",
+      "identity_json": "CRYPTO",
+      "registered_at": "METADATA",
+      "last_seen_at": "METADATA",
+      "revoked_at": "METADATA"
+    },
+    "tokens": {
+      "token_hash": "SECRET",
+      "account_id": "METADATA",
+      "device_id": "METADATA",
+      "kind": "METADATA",
+      "issued_at": "METADATA",
+      "expires_at": "METADATA",
+      "revoked_at": "METADATA"
+    },
+    "signed_prekeys": {
+      "device_id": "METADATA",
+      "key_id": "CRYPTO",
+      "public_key": "CRYPTO",
+      "signature": "CRYPTO",
+      "created_at": "METADATA"
+    },
+    "one_time_prekeys": {
+      "device_id": "METADATA",
+      "key_id": "CRYPTO",
+      "public_key": "CRYPTO",
+      "consumed_at": "METADATA"
+    },
+    "messages": {
+      "seq": "METADATA",
+      "message_id": "METADATA",
+      "recipient_device": "METADATA",
+      "sender_device": "METADATA",
+      "envelope_json": "CIPHERTEXT",
+      "size_bytes": "METADATA",
+      "queued_at": "METADATA",
+      "delivered_at": "METADATA",
+      "acked_at": "METADATA"
+    },
+    "push_tokens": {
+      "device_id": "METADATA",
+      "token": "SECRET",
+      "platform": "METADATA",
+      "updated_at": "METADATA"
+    },
+    "pq_prekeys": {
+      "device_id": "METADATA",
+      "key_id": "CRYPTO",
+      "public_key": "CRYPTO",
+      "signature": "CRYPTO",
+      "last_resort": "PUBLIC",
+      "created_at": "METADATA",
+      "consumed_at": "METADATA"
+    },
+    "attachments": {
+      "attachment_id": "PUBLIC",
+      "uploader_device": "METADATA",
+      "size_bytes": "METADATA",
+      "data": "CIPHERTEXT",
+      "created_at": "METADATA"
+    },
+    "attachment_recipients": {
+      "attachment_id": "METADATA",
+      "device_id": "METADATA"
+    },
+    "blocks": {
+      "blocker_account": "METADATA",
+      "blocked_account": "METADATA",
+      "created_at": "METADATA"
+    },
+    "reports": {
+      "report_id": "METADATA",
+      "reporter_account": "METADATA",
+      "reported_account": "METADATA",
+      "reason": "METADATA",
+      "note": "METADATA",
+      "created_at": "METADATA"
+    },
+    "account_settings": {
+      "account_id": "METADATA",
+      "show_online": "METADATA",
+      "show_last_seen": "METADATA"
+    },
+    "security_events": {
+      "event_id": "METADATA",
+      "account_id": "METADATA",
+      "kind": "METADATA",
+      "device_id": "METADATA",
+      "created_at": "METADATA"
+    }
+  },
+  "column_classes": {
+    "METADATA": 54,
+    "SECRET": 4,
+    "CRYPTO": 9,
+    "CIPHERTEXT": 2,
+    "PUBLIC": 2
+  },
+  "runs": {
+    "none": {
+      "policy": "none",
+      "queued": {
+        "rows": 6,
+        "edges": {
+          "alice -> bob": 2,
+          "bob -> alice": 2,
+          "alice -> carol": 1,
+          "carol -> alice": 1
+        },
+        "sizes": [
+          2064,
+          2116,
+          215,
+          367,
+          2064,
+          249
+        ],
+        "has_timestamps": true,
+        "table_rows": {
+          "accounts": 3,
+          "devices": 3,
+          "tokens": 9,
+          "signed_prekeys": 3,
+          "one_time_prekeys": 60,
+          "messages": 0,
+          "push_tokens": 0,
+          "pq_prekeys": 18,
+          "attachments": 0,
+          "attachment_recipients": 0,
+          "blocks": 0,
+          "reports": 0,
+          "account_settings": 0,
+          "security_events": 6
+        }
+      },
+      "after_delivery": {
+        "rows": 0,
+        "edges": {},
+        "sizes": [],
+        "has_timestamps": true,
+        "table_rows": {
+          "accounts": 3,
+          "devices": 3,
+          "tokens": 9,
+          "signed_prekeys": 3,
+          "one_time_prekeys": 60,
+          "messages": 0,
+          "push_tokens": 0,
+          "pq_prekeys": 18,
+          "attachments": 0,
+          "attachment_recipients": 0,
+          "blocks": 0,
+          "reports": 0,
+          "account_settings": 0,
+          "security_events": 6
+        }
+      },
+      "all_delivered_and_decrypted": true
+    },
+    "block-256": {
+      "policy": "block-256",
+      "queued": {
+        "rows": 6,
+        "edges": {
+          "alice -> bob": 2,
+          "bob -> alice": 2,
+          "alice -> carol": 1,
+          "carol -> alice": 1
+        },
+        "sizes": [
+          2400,
+          2400,
+          551,
+          551,
+          2400,
+          553
+        ],
+        "has_timestamps": true,
+        "table_rows": {
+          "accounts": 3,
+          "devices": 3,
+          "tokens": 9,
+          "signed_prekeys": 3,
+          "one_time_prekeys": 60,
+          "messages": 0,
+          "push_tokens": 0,
+          "pq_prekeys": 18,
+          "attachments": 0,
+          "attachment_recipients": 0,
+          "blocks": 0,
+          "reports": 0,
+          "account_settings": 0,
+          "security_events": 6
+        }
+      },
+      "after_delivery": {
+        "rows": 0,
+        "edges": {},
+        "sizes": [],
+        "has_timestamps": true,
+        "table_rows": {
+          "accounts": 3,
+          "devices": 3,
+          "tokens": 9,
+          "signed_prekeys": 3,
+          "one_time_prekeys": 60,
+          "messages": 0,
+          "push_tokens": 0,
+          "pq_prekeys": 18,
+          "attachments": 0,
+          "attachment_recipients": 0,
+          "blocks": 0,
+          "reports": 0,
+          "account_settings": 0,
+          "security_events": 6
+        }
+      },
+      "all_delivered_and_decrypted": true
+    }
+  }
+}

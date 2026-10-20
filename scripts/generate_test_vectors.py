@@ -26,6 +26,7 @@ compared.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import sys
@@ -34,13 +35,17 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "crypto" / "reference"))
 
-from helo_ref import x3dh
-from helo_ref.encoding import b64e
+from helo_ref import attachment, pqxdh, x3dh
+from helo_ref.encoding import b64d, b64e
 from helo_ref.identity import (
     IdentityKeyPair,
+    check_qr_payload,
     qr_payload,
     safety_number,
 )
+from helo_ref.padding import POLICIES, pad
+from helo_ref.pq import MLKEM768
+from helo_ref.pqxdh import PQXDH
 from helo_ref.prekeys import PreKeyStore
 from helo_ref.primitives import (
     aes256gcm_encrypt,
@@ -50,6 +55,7 @@ from helo_ref.ratchet import expand_message_key, kdf_chain, kdf_root
 from helo_ref.session import start_as_initiator, start_as_responder
 
 DEFAULT_SEED = b"Helo test vector seed v1 -- NOT FOR PRODUCTION USE"
+PQ_FIXTURE = REPO / "tests" / "vectors" / "pqxdh_encapsulation_fixture.json"
 
 
 class TestOnlyDRBG:
@@ -346,7 +352,177 @@ def vectors_safety_number_ordering(drbg: TestOnlyDRBG) -> dict:
     }
 
 
-def build(seed: bytes) -> dict:
+def vectors_qr_check(drbg: TestOnlyDRBG) -> dict:
+    """Scanned-QR verification outcomes (identity.check_qr_payload).
+
+    Alice scans what Bob displays. Only the first case may mark Bob verified.
+    """
+    alice = IdentityKeyPair.generate(drbg).public()
+    bob = IdentityKeyPair.generate(drbg).public()
+    mallory = IdentityKeyPair.generate(drbg).public()
+    good = qr_payload(bob, alice)
+    cases = [
+        ("bob shows his code, both keys as held", good),
+        ("code of someone else (or a key the relay substituted)", qr_payload(mallory, alice)),
+        ("bob holds a different key for alice", qr_payload(bob, mallory)),
+        ("halves swapped", qr_payload(alice, bob)),
+        ("not a helo code", "https://example.com/" + good),
+        ("wrong version", good.replace("helo:v1:", "helo:v2:", 1)),
+        ("three parts", good + ":AAAA"),
+        ("bad base64", "helo:v1:!!!!:" + good.split(":")[3]),
+        ("oversized", good + "A" * 600),
+    ]
+    return {
+        "description": "Alice (me) scans Bob's code; expected outcome per case.",
+        "me": alice.to_json(),
+        "peer": bob.to_json(),
+        "cases": [
+            {"name": name, "scanned": text,
+             "expected": check_qr_payload(text, alice, bob).value}
+            for name, text in cases
+        ],
+    }
+
+
+class _PinnedKEM:
+    """TEST VECTOR GENERATION ONLY. Returns a pinned ML-KEM ciphertext.
+
+    OpenSSL (through pyca) offers no derandomized encapsulation, so encapsulating
+    afresh on every run would make this file irreproducible. The ciphertext was
+    produced ONCE by real OpenSSL encapsulation against the pinned public key
+    and committed as a fixture; the shared secret is recomputed here by real
+    decapsulation every run, so nothing about the KEM is faked.
+    """
+
+    def __init__(self, seed: bytes, ct: bytes) -> None:
+        self._seed, self._ct = seed, ct
+
+    def encapsulate(self, ek: bytes) -> tuple[bytes, bytes]:
+        assert ek == MLKEM768.public_from_seed(self._seed), "pinned KEM used for another key"
+        return self._ct, MLKEM768.decapsulate(self._seed, self._ct)
+
+
+def _pinned_kem_ciphertext(ek: bytes, check: bool) -> bytes:
+    tag = hashlib.sha256(ek).hexdigest()
+    if PQ_FIXTURE.exists():
+        fixture = json.loads(PQ_FIXTURE.read_text())
+        if fixture.get("ek_sha256") == tag:
+            return b64d(fixture["ciphertext"])
+    if check:
+        raise SystemExit("FAIL: PQ encapsulation fixture is missing or does not match the "
+                         "pinned key. Regenerate the vectors deliberately and review the diff.")
+    ct, _ = MLKEM768.encapsulate(ek)
+    PQ_FIXTURE.write_text(json.dumps({
+        "note": ("One real OpenSSL ML-KEM-768 encapsulation against the PQ prekey "
+                 "pinned in helo_vectors.json (pqxdh). Committed so the vectors "
+                 "reproduce; regenerate only together with the vectors."),
+        "ek_sha256": tag,
+        "ciphertext": b64e(ct),
+    }, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    return ct
+
+
+def vectors_pqxdh(drbg: TestOnlyDRBG, check: bool) -> dict:
+    """Hybrid PQXDH establishment and a first ratcheted reply, every input pinned.
+
+    The ML-KEM key pair is generated from a pinned seed, so a conforming
+    implementation must reproduce OpenSSL's encapsulation key from the seed and
+    OpenSSL's shared secret from the ciphertext -- a direct interoperability
+    check of the ML-KEM implementation, not just of our protocol code.
+    """
+    alice_id = IdentityKeyPair.generate(drbg)
+    bob_id = IdentityKeyPair.generate(drbg)
+    store = PreKeyStore(bob_id, rng=drbg, clock=_fixed_clock)
+    store.rotate_signed_prekey()
+    store.generate_one_time_prekeys(1)
+    store.rotate_pq_last_resort()
+    store.generate_pq_one_time_prekeys(1)
+    bundle = store.publish_bundle("bob-device-1")
+    assert bundle.pq_prekey is not None and bundle.pq_prekey.one_time
+    pq_seed = store._pq[bundle.pq_prekey.key_id].seed
+    spk_priv = store.signed_prekey_private(bundle.signed_prekey.key_id)
+    otp_priv = store._one_time[bundle.one_time_prekey.key_id].private
+
+    ct = _pinned_kem_ciphertext(bundle.pq_prekey.encapsulation_key(), check)
+    kem_secret = MLKEM768.decapsulate(pq_seed, ct)
+
+    alice = start_as_initiator(alice_id, "alice-device-1", bundle, drbg,
+                               kex=PQXDH(kem=_PinnedKEM(pq_seed, ct)))
+    first_plain = b"PQ0: hybrid initial message"
+    first = alice.encrypt(first_plain)
+    result = pqxdh.respond(bob_id, copy.deepcopy(store), first.x3dh)
+    bob = start_as_responder(bob_id, "bob-device-1", store, first, accept_classical=False)
+    assert bob.decrypt(first, drbg) == first_plain
+    reply_plain = b"PQ1: reply over the ratchet"
+    reply = bob.encrypt(reply_plain)
+    assert alice.decrypt(reply, drbg) == reply_plain
+
+    return {
+        "description": (
+            "Hybrid PQXDH (X25519 x4 + ML-KEM-768). The ML-KEM key is derived from "
+            "a pinned FIPS 203 seed; the ciphertext is a pinned OpenSSL encapsulation."
+        ),
+        "info": pqxdh.INFO_PQXDH.decode(),
+        "alice_identity_private": {
+            "sig_seed": b64e(alice_id.sig_seed), "dh_priv": b64e(alice_id.dh_priv),
+        },
+        "bob_identity_private": {
+            "sig_seed": b64e(bob_id.sig_seed), "dh_priv": b64e(bob_id.dh_priv),
+        },
+        "bob_prekey_bundle": bundle.to_json(),
+        "bob_signed_prekey_private": b64e(spk_priv),
+        "bob_one_time_prekey_private": b64e(otp_priv),
+        "bob_pq_prekey_seed": b64e(pq_seed),
+        "kem_ciphertext": b64e(ct),
+        "kem_shared_secret": b64e(kem_secret),
+        "shared_secret": b64e(result.shared_secret),
+        "associated_data": b64e(result.associated_data),
+        "session_id": result.session_id,
+        "transcript": [
+            {"direction": "alice->bob", "plaintext": b64e(first_plain),
+             "envelope": first.to_json()},
+            {"direction": "bob->alice", "plaintext": b64e(reply_plain),
+             "envelope": reply.to_json()},
+        ],
+    }
+
+
+def vectors_padding() -> dict:
+    lengths = [0, 1, 158, 159, 160, 254, 255, 256, 300, 1000, 5000]
+    return {
+        "description": "payload || 0x80 || 0x00* to a bucket; padded length per policy.",
+        "cases": [
+            {"policy": name, "payload_length": n, "padded_length": len(pad(bytes(n), policy))}
+            for name, policy in sorted(POLICIES.items())
+            for n in lengths
+        ],
+        "example": {
+            "policy": "block-256",
+            "payload": b64e(b'{"v":1,"k":"typing"}'),
+            "padded": b64e(pad(b'{"v":1,"k":"typing"}', POLICIES["block-256"])),
+        },
+    }
+
+
+def vectors_attachment(drbg: TestOnlyDRBG) -> dict:
+    key = attachment.generate_key(drbg)
+    plaintext = bytes((i * 31 + 7) % 256 for i in range(200))
+    small_chunks = attachment.encrypt(key, plaintext, 64)
+    default_chunks = attachment.encrypt(key, plaintext[:100])
+    return {
+        "description": "STREAM AES-256-GCM: nonce = 0^7 || u32(i) || u8(final), AD fixed.",
+        "ad": attachment.ATTACHMENT_AD.decode(),
+        "key": b64e(key),
+        "plaintext": b64e(plaintext),
+        "chunk_size": 64,
+        "ciphertext": b64e(small_chunks),
+        "digest": b64e(attachment.digest(small_chunks)),
+        "default_chunk_plaintext": b64e(plaintext[:100]),
+        "default_chunk_ciphertext": b64e(default_chunks),
+    }
+
+
+def build(seed: bytes, check: bool = False) -> dict:
     return {
         "format_version": 1,
         "protocol": "Helo/1 X3DH-Curve25519-SHA256 + DoubleRatchet + AES-256-GCM",
@@ -360,9 +536,13 @@ def build(seed: bytes) -> dict:
         "x3dh": vectors_x3dh(TestOnlyDRBG(seed + b"|x3dh")),
         "double_ratchet": vectors_double_ratchet(TestOnlyDRBG(seed + b"|dr")),
         "out_of_order": vectors_out_of_order(TestOnlyDRBG(seed + b"|ooo")),
+        "pqxdh": vectors_pqxdh(TestOnlyDRBG(seed + b"|pqxdh"), check),
+        "padding": vectors_padding(),
+        "attachment": vectors_attachment(TestOnlyDRBG(seed + b"|attachment")),
         "safety_number_ordering": vectors_safety_number_ordering(
             TestOnlyDRBG(seed + b"|sn-order")
         ),
+        "qr_check": vectors_qr_check(TestOnlyDRBG(seed + b"|qr-check")),
     }
 
 
@@ -375,7 +555,7 @@ def main() -> int:
                         help="regenerate and fail if the committed vectors differ")
     args = parser.parse_args()
 
-    payload = json.dumps(build(DEFAULT_SEED), indent=2, sort_keys=True) + "\n"
+    payload = json.dumps(build(DEFAULT_SEED, check=args.check), indent=2, sort_keys=True) + "\n"
     out_path = Path(args.out)
 
     if args.check:
@@ -392,7 +572,8 @@ def main() -> int:
         return 0
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(payload)
+    # LF on every platform, so the committed file is byte-stable across OSes.
+    out_path.write_text(payload, encoding="utf-8", newline="\n")
     digest = hashlib.sha256(payload.encode()).hexdigest()
     print(f"wrote {out_path} ({len(payload)} bytes)")
     print(f"sha256 {digest}")

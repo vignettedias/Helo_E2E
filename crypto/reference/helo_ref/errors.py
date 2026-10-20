@@ -68,3 +68,20 @@ class AuthenticationError(HeloError):
 
 class ReplayError(HeloError):
     """A ciphertext was replayed: its message key was already consumed."""
+
+
+# --- Post-quantum establishment policy -------------------------------------
+
+class PostQuantumUnavailableError(HeloError):
+    """A hybrid (PQXDH) establishment was requested but the peer's bundle has
+    no valid signed ML-KEM prekey.
+
+    Deliberately NOT handled by falling back to classical X3DH: a relay can
+    strip the PQ prekey, so an automatic fallback would be a silent downgrade.
+    Choosing classical establishment must be an explicit, visible decision.
+    """
+
+
+class DowngradeRejectedError(HeloError):
+    """A classical (X3DH) initial message arrived while policy requires the
+    hybrid handshake."""

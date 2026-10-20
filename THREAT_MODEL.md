@@ -101,11 +101,11 @@ An attacker executing code as the app reads plaintext before encryption and afte
 
 **Expected:** metadata is enumerated, not minimised. **Result:** ❌ **Not defended.**
 
-**Observable:** sender and recipient device/account identifiers; session identifiers linking traffic; message timing and frequency; **exact plaintext length** (expansion is a constant 57 bytes, measured); ratchet cadence and per-chain counts; delivery and read state; which prekeys were consumed and when; IP address and connection timing.
+**Observable:** sender and recipient device/account identifiers; session identifiers linking traffic; message timing and frequency; **padded length** (block-256 by default; the leakage is measured in `research/RESULTS.md` E1), and which message starts a session; ratchet cadence and per-chain counts; delivery and read state; which prekeys were consumed and when; IP address and connection timing.
 
 **Not observable:** message content; any session, chain, root, or message key; any private key; safety numbers; verification state.
 
-No padding, cover traffic, or sealed-sender mechanism is implemented.
+Padding buckets sizes. No cover traffic or sealed-sender mechanism is implemented. The encrypted payload kind (message, receipt, typing, reaction, edit) is not visible.
 
 ## T9 — Resource exhaustion (A2/A3)
 

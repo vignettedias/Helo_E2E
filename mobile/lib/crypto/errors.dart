@@ -54,3 +54,16 @@ class AuthenticationError extends HeloError {
 class ReplayError extends HeloError {
   const ReplayError(super.message);
 }
+
+/// A hybrid (PQXDH) establishment was requested but the peer's bundle has no
+/// valid signed ML-KEM prekey. Deliberately NOT handled by falling back to
+/// X3DH: a relay can strip the PQ prekey, so a fallback would be a silent
+/// downgrade. Allowing classical sessions must be an explicit user decision.
+class PostQuantumUnavailableError extends HeloError {
+  const PostQuantumUnavailableError(super.message);
+}
+
+/// A classical (X3DH) initial message arrived while policy requires the hybrid.
+class DowngradeRejectedError extends HeloError {
+  const DowngradeRejectedError(super.message);
+}

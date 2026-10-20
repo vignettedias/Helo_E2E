@@ -49,6 +49,7 @@ from typing import Protocol
 from .encoding import PROTOCOL_VERSION, b64d, b64e, lp
 from .errors import InvalidEncodingError
 from .identity import IdentityKeyPair, IdentityPublic
+from .pq import MLKEM768_CT_LEN
 from .prekeys import PreKeyBundle, PreKeyStore
 from .primitives import (
     DEFAULT_RANDOM,
@@ -65,6 +66,11 @@ from .primitives import (
 
 X3DH_F = b"\xff" * 32
 AD_CONTEXT = b"Helo_AD_v1"
+
+# Initial-header versions. v1 = classical X3DH; v2 = hybrid PQXDH, which must
+# carry the ML-KEM ciphertext. A header can never be half of each.
+HEADER_VERSION_CLASSICAL = PROTOCOL_VERSION
+HEADER_VERSION_HYBRID = 2
 
 
 def associated_data(initiator: IdentityPublic, responder: IdentityPublic) -> bytes:
@@ -121,22 +127,39 @@ class InitialMessageHeader:
     ephemeral_pub: bytes
     signed_prekey_id: int
     one_time_prekey_id: int | None
+    pq_prekey_id: int | None = None
+    pq_ciphertext: bytes | None = None
+
+    @property
+    def is_hybrid(self) -> bool:
+        return self.version == HEADER_VERSION_HYBRID
 
     def to_json(self) -> dict:
-        return {
+        obj = {
             "version": self.version,
             "initiator_identity": self.initiator_identity.to_json(),
             "ephemeral_pub": b64e(self.ephemeral_pub),
             "signed_prekey_id": self.signed_prekey_id,
             "one_time_prekey_id": self.one_time_prekey_id,
         }
+        if self.pq_ciphertext is not None:
+            obj["pq"] = {"key_id": self.pq_prekey_id, "ct": b64e(self.pq_ciphertext)}
+        return obj
 
     @staticmethod
     def from_json(obj: dict) -> InitialMessageHeader:
         try:
             version = int(obj["version"])
-            if version != PROTOCOL_VERSION:
+            if version not in (HEADER_VERSION_CLASSICAL, HEADER_VERSION_HYBRID):
                 raise InvalidEncodingError(f"unsupported version {version}")
+            pq = obj.get("pq")
+            # The version and the presence of the KEM ciphertext must agree. A
+            # v1 header with a ciphertext, or a v2 header without one, is
+            # malformed -- not something to be "repaired" into either mode.
+            if version == HEADER_VERSION_CLASSICAL and pq is not None:
+                raise InvalidEncodingError("classical initial header carries PQ data")
+            if version == HEADER_VERSION_HYBRID and not isinstance(pq, dict):
+                raise InvalidEncodingError("hybrid initial header lacks PQ data")
             otp = obj.get("one_time_prekey_id")
             return InitialMessageHeader(
                 version=version,
@@ -144,6 +167,8 @@ class InitialMessageHeader:
                 ephemeral_pub=b64d(obj["ephemeral_pub"], expect_len=X25519_KEY_LEN),
                 signed_prekey_id=int(obj["signed_prekey_id"]),
                 one_time_prekey_id=int(otp) if otp is not None else None,
+                pq_prekey_id=int(pq["key_id"]) if pq else None,
+                pq_ciphertext=b64d(pq["ct"], expect_len=MLKEM768_CT_LEN) if pq else None,
             )
         except KeyError as exc:
             raise InvalidEncodingError(f"initial header missing field {exc}") from exc
@@ -218,6 +243,8 @@ def respond(
     The one-time prekey is CONSUMED here (destroyed), which is one of the
     layers defending against replay of the initial message.
     """
+    if header.is_hybrid:
+        raise InvalidEncodingError("hybrid initial message passed to classical X3DH")
     header.initiator_identity.verify_binding()
 
     spk_priv = prekeys.signed_prekey_private(header.signed_prekey_id)
@@ -281,6 +308,7 @@ class KeyEstablishment(Protocol):
 class ClassicalX3DH:
     """Concrete classical implementation. NOT post-quantum secure."""
 
+    id = "x3dh"
     name = "X3DH-Curve25519-SHA256"
     post_quantum = False
 

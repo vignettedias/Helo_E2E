@@ -30,6 +30,9 @@ class ValidationError extends Error {
 
 const B64 = /^[A-Za-z0-9+/]*={0,2}$/;
 const ID = /^[A-Za-z0-9._-]{1,64}$/;
+/** Registration rule, applied after lower-casing. */
+const USERNAME = /^[a-z0-9][a-z0-9._-]{2,31}$/;
+const MAX_PQ_PREKEY_BATCH = 100;
 
 function requireString(obj, field, { max = 256, pattern = null } = {}) {
   const value = obj?.[field];
@@ -132,8 +135,33 @@ function validateOneTimePreKeys(raw) {
   return raw;
 }
 
+/**
+ * A signed ML-KEM prekey. The relay checks shape and size only; the client
+ * verifies the signature and the exact key encoding before using it.
+ */
+function validatePqPreKey(raw, field = 'pq_prekey') {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new ValidationError(`${field} must be an object`, field);
+  }
+  requireInt(raw, 'key_id');
+  requireBase64(raw, 'public', 2048);
+  requireBase64(raw, 'signature', 128);
+  return raw;
+}
+
+function validatePqPreKeys(raw) {
+  if (!Array.isArray(raw)) {
+    throw new ValidationError('pq_one_time_prekeys must be an array', 'pq_one_time_prekeys');
+  }
+  if (raw.length > MAX_PQ_PREKEY_BATCH) {
+    throw new ValidationError(`at most ${MAX_PQ_PREKEY_BATCH} PQ prekeys per request`);
+  }
+  return raw.map((k) => validatePqPreKey(k, 'pq_one_time_prekeys'));
+}
+
 module.exports = {
   ValidationError, validateEnvelope, validateIdentity, validateSignedPreKey,
-  validateOneTimePreKeys, requireString, requireInt, requireBase64,
-  MAX_ENVELOPE_BYTES, MAX_PREKEY_BATCH, ID,
+  validateOneTimePreKeys, validatePqPreKey, validatePqPreKeys,
+  requireString, requireInt, requireBase64,
+  MAX_ENVELOPE_BYTES, MAX_PREKEY_BATCH, MAX_PQ_PREKEY_BATCH, ID, USERNAME,
 };

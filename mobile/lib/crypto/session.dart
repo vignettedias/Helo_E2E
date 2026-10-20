@@ -22,6 +22,7 @@ import 'envelope.dart';
 import 'errors.dart';
 import 'identity.dart';
 import 'prekeys.dart';
+import 'pqxdh.dart';
 import 'primitives.dart';
 import 'ratchet.dart';
 import 'x3dh.dart';
@@ -96,6 +97,7 @@ class Session {
     this.verification = VerificationStatus.unverified,
     this.pendingX3dh,
     this.usedOneTimePreKey = true,
+    this.kex = 'x3dh',
   });
 
   final String sessionId;
@@ -109,6 +111,12 @@ class Session {
   /// Alice repeats the X3DH header until Bob demonstrably has the session.
   InitialMessageHeader? pendingX3dh;
   bool usedOneTimePreKey;
+
+  /// Which establishment produced this session: `x3dh` or `pqxdh-mlkem768`.
+  /// Recorded so the UI can show which one protects a conversation.
+  final String kex;
+
+  bool get establishedWithPostQuantumHandshake => kex == 'pqxdh-mlkem768';
 
   void _transition(SessionState target) {
     if (!allowedTransitions[state]!.contains(target)) {
@@ -210,6 +218,7 @@ class Session {
       'remote_identity_fingerprint':
           short((await remoteIdentity.fingerprint()).sublist(0, 8)),
       'used_one_time_prekey': usedOneTimePreKey,
+      'key_establishment': kex,
     };
   }
 
@@ -224,6 +233,7 @@ class Session {
       'state': state.wire,
       'verification': verification.wire,
       'used_one_time_prekey': usedOneTimePreKey,
+      'kex': kex,
       // Kept until the peer replies. Without it, a session started but not yet
       // used before a restart would send its first message with no X3DH header,
       // and the peer could never establish its side.
@@ -378,6 +388,7 @@ class Session {
         verification:
             VerificationStatus.fromWire(decoded['verification']! as String),
         usedOneTimePreKey: decoded['used_one_time_prekey']! as bool,
+        kex: decoded['kex'] as String? ?? 'x3dh',
         pendingX3dh: decoded['pending_x3dh'] is Map<String, dynamic>
             ? InitialMessageHeader.fromJson(
                 decoded['pending_x3dh']! as Map<String, dynamic>)
@@ -394,14 +405,19 @@ class Session {
 /// Alice starts a session against a bundle fetched from the relay.
 ///
 /// Works with Bob entirely offline: nothing here requires his participation.
+///
+/// The scheme is the caller's EXPLICIT choice. `Pqxdh()` against a bundle with
+/// no PQ prekey throws rather than quietly using X3DH; a client that permits
+/// classical sessions must decide so itself and tell the user.
 Future<Session> startAsInitiator({
   required IdentityKeyPair identity,
   required String localDeviceId,
   required PreKeyBundle bundle,
   RandomSource? rng,
+  KeyEstablishment kex = const ClassicalX3dh(),
 }) async {
   final InitiateOutcome outcome =
-      await x3dhInitiate(identity: identity, bundle: bundle, rng: rng);
+      await kex.initiate(identity: identity, bundle: bundle, rng: rng);
   final RatchetState ratchet = await initInitiator(
     sharedSecret: outcome.result.sharedSecret,
     remoteSignedPreKeyPub: bundle.signedPreKey.publicKey,
@@ -415,22 +431,34 @@ Future<Session> startAsInitiator({
     associatedData: outcome.result.associatedData,
     pendingX3dh: outcome.header,
     usedOneTimePreKey: outcome.result.usedOneTimePreKey,
+    kex: kex.id,
   );
 }
 
 /// Bob builds his side from Alice's first (prekey) message.
+///
+/// The scheme is read from the header version (v2 = PQXDH, v1 = X3DH).
+/// `acceptClassical: false` is the hybrid-required policy: a classical initial
+/// message is then refused with [DowngradeRejectedError].
 Future<Session> startAsResponder({
   required IdentityKeyPair identity,
   required String localDeviceId,
   required PreKeyStore prekeys,
   required Envelope envelope,
+  bool acceptClassical = true,
 }) async {
   final InitialMessageHeader? header = envelope.x3dh;
   if (header == null) {
     throw const UnknownSessionError(
         'cannot establish a session from a message without an X3DH header');
   }
-  final X3dhResult result = await x3dhRespond(
+  if (!header.isHybrid && !acceptClassical) {
+    throw const DowngradeRejectedError(
+        'classical X3DH initial message refused: policy requires the hybrid handshake');
+  }
+  final KeyEstablishment kex =
+      header.isHybrid ? const Pqxdh() : const ClassicalX3dh();
+  final X3dhResult result = await kex.respond(
     identity: identity,
     prekeys: prekeys,
     header: header,
@@ -446,5 +474,6 @@ Future<Session> startAsResponder({
     ratchet: ratchet,
     associatedData: result.associatedData,
     usedOneTimePreKey: result.usedOneTimePreKey,
+    kex: kex.id,
   );
 }

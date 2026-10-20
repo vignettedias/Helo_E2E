@@ -218,6 +218,19 @@ void main() {
       );
     });
 
+    test('scanned QR codes are judged exactly as the reference judges them', () {
+      final Map<String, dynamic> v = _map(vectors['qr_check']);
+      final IdentityPublic me = IdentityPublic.fromJson(_map(v['me']));
+      final IdentityPublic peer = IdentityPublic.fromJson(_map(v['peer']));
+      final List<Object?> cases = v['cases'] as List<Object?>;
+      expect(cases, isNotEmpty);
+      for (final Object? raw in cases) {
+        final Map<String, dynamic> c = _map(raw);
+        expect(checkQrPayload(_str(c['scanned']), me: me, peer: peer).wire, equals(_str(c['expected'])),
+            reason: _str(c['name']));
+      }
+    });
+
     test('identity binding verifies, and a substituted key does not', () async {
       final Map<String, dynamic> v = _map(vectors['x3dh']);
       final IdentityPublic bob =

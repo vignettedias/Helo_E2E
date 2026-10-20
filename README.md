@@ -1,14 +1,14 @@
 # Helo
 
-**Classical X3DH + Double Ratchet implementation** with an untrusted ciphertext
-relay architecture.
+**A privacy-first end-to-end encrypted messenger.** It uses a hybrid post-quantum handshake, the Double
+Ratchet, and an untrusted relay that only ever holds ciphertext.
 
-Protocol identifier: `Helo/1 X3DH-Curve25519-SHA256 + DoubleRatchet + AES-256-GCM`
+Protocol identifier: `Helo/2 PQXDH(X25519 + ML-KEM-768)-SHA256 + DoubleRatchet + AES-256-GCM`
 
-> **Not post-quantum secure.** No post-quantum primitive exists in this
-> codebase. The key-establishment layer is abstracted so PQXDH can replace it
-> — see [PQXDH roadmap](#pqxdh-roadmap) — but until that work is done and
-> tested, no PQ property is claimed.
+> **Post-quantum at session establishment only.** Every new session uses a hybrid X25519 + ML-KEM-768
+> handshake (PQXDH structure), with no silent fallback to classical. The Double Ratchet after it is
+> classical. Details and limits: [PROTOCOL.md § 9](PROTOCOL.md) and [SECURITY_CLAIMS.md](SECURITY_CLAIMS.md)
+> C15–C16. This implementation has not been independently audited.
 
 ---
 
@@ -35,33 +35,25 @@ This project is being built in the phased order its specification prescribes:
 **cryptography first, chat UI last.** A polished UI over an unverified protocol
 is the exact failure mode this design is meant to avoid.
 
-| Phase | Component | Status |
-|---|---|---|
-| 1 | Repository & architecture | ✅ Complete |
-| 2 | Cryptographic abstraction layer | ✅ Complete |
-| 3 | Identity keys & secure storage | ✅ Complete (in-memory storage tested; platform keystores not exercised) |
-| 4 | Prekey infrastructure | ✅ Complete |
-| 5 | X3DH session establishment | ✅ Complete |
-| 6 | Double Ratchet | ✅ Complete |
-| 7 | Message encryption | ✅ Complete |
-| 8 | Relay backend | ✅ Complete — 25 tests, zero dependencies |
-| 9 | Flutter client | ✅ Crypto, storage, relay client, UI — runs in the browser |
-| 10 | Identity verification | ✅ Protocol, safety numbers, QR display + warning UI |
-| 11–13 | Security, adversarial, property testing | ✅ 99 tests passing |
-| 14 | Documentation | ✅ Complete |
-| 15 | CI/CD & deployment | ✅ Complete — CI, Docker, TLS |
+| Area | Status |
+|---|---|
+| Protocol: PQXDH, Double Ratchet, padding, STREAM attachments | ✅ Python reference (normative) and Dart port, pinned by vectors |
+| Relay v2: device-bound sending, directory, presence, long-poll, batch, attachments, blocks, reports, settings, security events, account deletion | ✅ zero runtime dependencies |
+| Messenger: 1:1 and groups, receipts, typing, replies, reactions, edit, delete, forward, search, pin, archive, mute, disappearing messages, blocking, profiles, per-device verification | ✅ `mobile/lib/domain/` |
+| UI: onboarding, chat list, chat, info and security panel, settings, dark mode, phone to 3-pane widths | ✅ checked in the browser (see `docs/IMPLEMENTATION_STATUS.md`) |
+| Verification dashboard built from real test runs | ✅ `scripts/verify.py` → `reports/`, also in the app |
+| Research experiments (padding, PQ cost, metadata) | ✅ `research/` — measured, not estimated |
 
-**Verification status by component — this distinction matters:**
+**Verification status (run of 2026-10-16, `python scripts/verify.py`): 388/388 tests, 10/10 suites PASS.**
 
 | Component | Executed & verified here? |
 |---|---|
-| Python reference implementation | ✅ 99 tests run and passing |
-| Relay backend | ✅ 25 tests run and passing |
-| Cross-stack end-to-end | ✅ 24 checks run and passing |
+| Python reference (unit, adversarial, property, integration) | ✅ 144 + 49 + 18 + 10 passing |
 | Test vectors | ✅ reproduce byte-exactly |
-| Dart client crypto | ✅ 22 vector-conformance tests passing (Flutter 3.47 / Dart 3.13) |
-| Dart client session layer | ✅ 6 tests: restarts, token expiry, crash-before-send, forged first message |
-| Web client against the real relay | ✅ exercised by hand: two users, restart, ratchet, verification |
+| Relay backend | ✅ 44 tests passing |
+| Cross-stack end-to-end (PQXDH + database inspection) | ✅ 29 checks passing |
+| Dart client (vectors, protocol v2, Messenger and chat UI against the real relay) | ✅ 91 tests passing, `flutter analyze` clean |
+| Web client against the real relay | ✅ exercised by hand: two users, groups, reactions, replies, edits, deletes, dark mode, phone width |
 | Android / iOS builds | ⚠️ platform projects generated, not built (no Android SDK or macOS here) |
 
 The Dart port is *verifiable*, not asserted correct: `flutter test` replays the
@@ -72,9 +64,12 @@ which disagrees with the reference for roughly a third of identity pairs. A
 vector chosen to sort differently under the two rules now pins the behaviour
 (`safety_number_ordering` in the vector file).
 
-**What exists today**: a verified cryptographic core, a working untrusted
-relay, a Flutter client that runs in the browser against that relay, complete
-documentation and threat modelling, CI, and containerised deployment.
+**What exists today**:
+- a verified hybrid-PQ cryptographic core;
+- a working untrusted relay;
+- a full-featured messenger that runs in the browser against that relay;
+- measured privacy and performance experiments;
+- documentation, CI and containerised deployment.
 
 **How to run any of it: [RUNNING.md](RUNNING.md).**
 
@@ -188,43 +183,47 @@ message.
 
 ```
 helo/
-├── README.md
-├── SECURITY_CLAIMS.md          claim → mechanism → test → evidence → limitation
+├── README.md  PROTOCOL.md  SECURITY_CLAIMS.md  RUNNING.md  RESEARCH_METHODOLOGY.md
 ├── crypto/reference/           NORMATIVE Python protocol implementation
 │   └── helo_ref/
 │       ├── primitives.py       audited-library wrappers, key validation
 │       ├── encoding.py         canonical wire encoding
 │       ├── identity.py         identity keys, fingerprints, safety numbers
-│       ├── prekeys.py          prekey lifecycle
-│       ├── x3dh.py             session establishment + PQXDH seam
+│       ├── prekeys.py          prekey lifecycle, incl. signed ML-KEM prekeys
+│       ├── x3dh.py             classical establishment + KeyEstablishment seam
+│       ├── pq.py  pqxdh.py     ML-KEM-768 wrapper; hybrid PQXDH
+│       ├── padding.py          length-hiding padding policies
+│       ├── attachment.py       STREAM AES-256-GCM file encryption
 │       ├── ratchet.py          Double Ratchet
 │       ├── message.py          wire envelope + data classification
-│       ├── session.py          state machine + encrypted persistence
+│       ├── session.py          state machine, downgrade policy, encrypted persistence
 │       ├── secure_log.py       allowlist-based redacting logger
 │       └── errors.py           fail-closed error taxonomy
-├── tests/
-│   ├── unit/                   47 tests
-│   ├── adversarial/            29 tests
-│   ├── property/               13 tests (Hypothesis)
-│   ├── integration/            10 tests
-│   └── vectors/                deterministic cross-implementation vectors
+├── tests/                      unit 130 · adversarial 49 · property 18 · integration 10
+│   └── vectors/                deterministic cross-implementation vectors (+ ML-KEM fixture)
 ├── scripts/
+│   ├── verify.py               runs every suite → reports/verification.json + dashboard.html
+│   ├── experiments/            E1 padding, E2 PQ handshake cost, E3 metadata inventory
 │   ├── generate_test_vectors.py
 │   ├── integration_e2e.py      real relay + real client + database inspection
 │   ├── run_demo.py             relay + web client for a local two-user demo
 │   └── benchmark.py
-├── docs/benchmarks/
+├── research/                   EXPERIMENTS.md, METRICS.md, RESULTS.md, results/*.json
+├── reports/                    output of scripts/verify.py
+├── docs/                       audit, architecture, security model, API, testing, roadmap, status
 ├── backend/                    relay — ZERO npm dependencies
-│   ├── src/{db,auth,validate,ratelimit,log,server}.js
-│   └── test/relay.test.js      25 tests
+│   ├── src/server.js http.js context.js db.js auth.js validate.js ratelimit.js log.js
+│   ├── src/routes/             auth, devices, prekeys, messages, attachments, social, account
+│   └── test/                   relay.test.js + relay_v2.test.js (44 tests)
 ├── mobile/                     Flutter client
-│   ├── lib/crypto/             Dart port of the reference
+│   ├── lib/crypto/             Dart port of the reference (incl. PQXDH, padding, attachments)
+│   ├── lib/protocol/           end-to-end encrypted application payload
 │   ├── lib/storage/            CryptoStorage (Keystore / Keychain)
 │   ├── lib/data/               relay client (moves ciphertext only)
-│   ├── lib/domain/             SessionManager — the plaintext boundary
-│   ├── lib/ui/                 screens and security-state widgets
+│   ├── lib/domain/             Messenger — the plaintext boundary; directory, groups, local store
+│   ├── lib/ui/                 screens, widgets, theme
 │   ├── android/ ios/ web/ windows/   generated platform projects
-│   └── test/                   vector conformance + SessionManager tests
+│   └── test/                   vectors, protocol v2, Messenger + chat UI against the real relay
 ├── docker/                     hardened deployment + TLS
 └── .github/workflows/ci.yml    CI with security gates
 ```
@@ -247,13 +246,13 @@ pip install cryptography pytest hypothesis
 ## Testing
 
 ```bash
-python3 -m pytest -q                      # 99 protocol tests
-python3 -m pytest tests/adversarial -q    # active-attacker tests
-python3 -m pytest tests/property -q       # property-based tests
-
-cd backend && node --test test/relay.test.js   # 25 relay tests, zero deps
-cd mobile  && flutter test                     # 28 Dart tests incl. vector conformance
+python scripts/verify.py                  # everything below → reports/verification.json + dashboard.html
+python -m pytest -q                       # 221 protocol tests
+cd backend && npm test                    # 44 relay tests, zero deps
+cd mobile  && flutter test                # 91 Dart tests, incl. Messenger + UI against the real relay
 ```
+
+Details: [docs/TESTING.md](docs/TESTING.md). Experiments: [research/EXPERIMENTS.md](research/EXPERIMENTS.md).
 
 ## Security testing
 
@@ -311,10 +310,13 @@ Run-to-run variance on a shared machine is roughly ±20%, so treat these as
 the number that actually matters for design — not as precise figures.
 Regenerate with `python3 scripts/benchmark.py`.
 
-**Ciphertext expansion: constant 57 bytes** (16-byte GCM tag + 41-byte header)
-across payloads from 0 B to 16 KB. Because expansion is constant, ciphertext
-length reveals plaintext length exactly — a metadata consequence recorded in
-SECURITY_CLAIMS.md rather than glossed over.
+**Ciphertext expansion: constant 57 bytes** (16-byte GCM tag + 41-byte header) across payloads from
+0 B to 16 KB. Helo/2 therefore pads before encryption: block-256 by default.
+
+HELO 2.0 measurements are in [research/RESULTS.md](research/RESULTS.md):
+- the hybrid handshake costs about 0.2 ms more per side, and the first message is about 1.5 KB larger;
+- block-256 cuts length leakage on short messages from 7.6 to 0.33 bits;
+- the relay database exposes the who-talks-to-whom graph while messages are queued.
 
 ---
 
@@ -323,12 +325,13 @@ SECURITY_CLAIMS.md rather than glossed over.
 The full list is in [SECURITY_CLAIMS.md](SECURITY_CLAIMS.md). The ones that
 matter most:
 
-- **Not post-quantum secure.** No PQ primitive is implemented.
+- **Post-quantum only at session establishment.** The ratchet is classical, the PQXDH instantiation
+  has not been formally analysed, and the Dart ML-KEM package has not been audited.
 - **Trust On First Use.** Cryptography authenticates keys, not people. A
   first-contact MITM is only detected if users actually compare safety numbers
   out of band.
-- **Metadata is exposed.** No padding, cover traffic, or sealed sender. Traffic
-  analysis is not defended against.
+- **Metadata is exposed.** Padding buckets message sizes, but there is no cover traffic or sealed sender.
+  The relay sees who talks to whom and when, and traffic analysis is not defended against.
 - **Post-compromise recovery is not automatic.** It requires the compromised
   party to actually send a message.
 - **Forward secrecy has two exceptions**: in-flight messages and stored skipped
@@ -344,32 +347,32 @@ matter most:
   on the web, `flutter_secure_storage` keeps keys in browser storage under a
   WebCrypto key — far weaker than a hardware keystore. The web build is a
   demonstration client, not a recommended way to hold real keys.
-- **QR verification is display-only.** The app renders the verification QR
-  code but cannot scan one; compare the 60-digit numbers instead.
-- **A peer who resets their identity cannot be re-adopted in place.** The
-  conversation is flagged *identity changed* and stays blocked; there is no
-  "accept new key" flow yet.
+- **QR scanning is tested in code but not yet with a real camera.** Scanning a contact's code (camera or
+  screenshot) checks both directions and verifies only that device on an exact match. The decoder and the
+  verdict are tested; the live camera path has not been exercised on a device with a camera.
+- **Voice messages and in-app audio/video playback are not yet checked by hand.** Recording,
+  encryption, delivery and the player UI are covered by tests. Recording with a real microphone and
+  playback in a real browser still need a manual check. On mobile/desktop, playing a file writes a
+  temporary plaintext copy that is deleted when the player closes.
+- **A reset peer appears as a new, unverified device.** Resetting creates a new device id. The chat
+  notes "added a new device. It is not verified", and its trust badge drops to unverified until safety
+  numbers are compared again. A *changed* key under an existing device id can only come from a
+  misbehaving relay, so that device stays blocked permanently.
+- **No push notifications.** Notifications appear only while the app is open.
 - **Interoperability with Signal is not claimed** and has not been tested.
 
 ---
 
-## PQXDH roadmap
+## Post-quantum design
 
-`x3dh.KeyEstablishment` is the migration seam. The Double Ratchet consumes only
-`X3DHResult.shared_secret` and has no knowledge of how it was produced, so
-migration touches exactly one module:
+`x3dh.KeyEstablishment` was the migration seam, and it held. PQXDH (`helo_ref/pqxdh.py`,
+`mobile/lib/crypto/pqxdh.dart`) replaced the key agreement without touching `ratchet.py` or `message.py`.
+- The ML-KEM-768 shared secret is put into the same HKDF as the classical DH outputs.
+- PQ prekeys are signed by the identity key.
+- A missing or stripped PQ prekey is refused, never downgraded.
 
-1. Publish an ML-KEM-768 public key in the prekey bundle, signed by `IK_sig`.
-2. `initiate` encapsulates against it; the KEM ciphertext travels in the initial
-   header.
-3. `respond` decapsulates.
-4. The KEM shared secret is **concatenated with** the classical DH outputs in
-   the HKDF input — a hybrid construction. The classical DHs are *retained*, so
-   a break in either primitive alone is not fatal.
-5. `INFO_X3DH` becomes `Helo_PQXDH_v1` so the schemes cannot derive
-   colliding secrets.
-
-Nothing in `ratchet.py` or `message.py` changes. That is the point of the seam.
+Specification: [PROTOCOL.md § 9](PROTOCOL.md). Claims and tests: [SECURITY_CLAIMS.md](SECURITY_CLAIMS.md)
+C15–C16. Next step: a post-quantum ratchet component.
 
 ---
 

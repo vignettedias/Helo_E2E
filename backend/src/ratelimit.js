@@ -18,6 +18,13 @@ const BUCKETS = {
   'prekeys:publish':{ capacity: 10,  refillPerSecond: 10 / 300 },
   'messages:send':  { capacity: 120, refillPerSecond: 2 },
   'messages:fetch': { capacity: 120, refillPerSecond: 2 },
+  // Discovery is exact-match only; this bounds enumeration by guessing.
+  'users:lookup':   { capacity: 60,  refillPerSecond: 1 },
+  'presence:fetch': { capacity: 120, refillPerSecond: 2 },
+  'attachments:upload': { capacity: 30, refillPerSecond: 0.5 },
+  'attachments:fetch':  { capacity: 120, refillPerSecond: 2 },
+  'reports:create': { capacity: 10,  refillPerSecond: 10 / 3600 },
+  'auth:password':  { capacity: 5,   refillPerSecond: 5 / 300 },
   default:          { capacity: 60,  refillPerSecond: 1 },
 };
 

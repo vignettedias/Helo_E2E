@@ -28,6 +28,7 @@ fingerprint, and the AEAD associated data simultaneously.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from .encoding import b64d, b64e, lp, u8
 from .errors import InvalidEncodingError
@@ -37,6 +38,7 @@ from .primitives import (
     INFO_FINGERPRINT,
     X25519_KEY_LEN,
     RandomSource,
+    constant_time_eq,
     ed25519_generate,
     ed25519_sign,
     ed25519_verify,
@@ -180,3 +182,48 @@ def qr_payload(local: IdentityPublic, remote_expected: IdentityPublic) -> str:
         + ":"
         + b64e(remote_expected.encode())
     )
+
+
+QR_PREFIX = "helo:v1:"
+# Two base64 identity encodings are ~120 characters; anything far longer is
+# not a Helo code and is refused before any decoding work.
+QR_MAX_LEN = 512
+
+
+class QrCheck(Enum):
+    """Outcome of comparing a scanned verification QR code.
+
+    Only MATCH may lead to marking a device verified. Every other outcome is a
+    reason NOT to, and the two mismatch cases mean different things to a user.
+    """
+
+    MATCH = "match"
+    NOT_HELO = "not_helo"                   # not a Helo verification code at all
+    PEER_KEY_MISMATCH = "peer_key_mismatch"  # the code's owner is not the key we hold for them
+    OWN_KEY_MISMATCH = "own_key_mismatch"    # they hold a different key for US (MITM on our side)
+
+
+def check_qr_payload(scanned: str, me: IdentityPublic, peer: IdentityPublic) -> QrCheck:
+    """Compare a scanned code with the identities already held.
+
+    `scanned` was displayed by the peer, so it reads
+    `helo:v1:<peer as they are> : <me as they see me>`. The scan is a MATCH only
+    if BOTH halves equal what this device holds. Nothing in the code is ever
+    imported or trusted: a code naming an unknown key is a mismatch, never a
+    new identity.
+    """
+    if len(scanned) > QR_MAX_LEN or not scanned.startswith(QR_PREFIX):
+        return QrCheck.NOT_HELO
+    parts = scanned[len(QR_PREFIX):].split(":")
+    if len(parts) != 2:
+        return QrCheck.NOT_HELO
+    try:
+        their_self = b64d(parts[0])
+        their_view_of_me = b64d(parts[1])
+    except InvalidEncodingError:
+        return QrCheck.NOT_HELO
+    if not constant_time_eq(their_self, peer.encode()):
+        return QrCheck.PEER_KEY_MISMATCH
+    if not constant_time_eq(their_view_of_me, me.encode()):
+        return QrCheck.OWN_KEY_MISMATCH
+    return QrCheck.MATCH

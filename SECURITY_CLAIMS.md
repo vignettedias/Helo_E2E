@@ -9,14 +9,18 @@ test, it is not claimed.* Properties that are architecturally intended but not
 yet demonstrated appear in [§3 Not Yet Claimed](#3-not-yet-claimed), not in the
 claims table.
 
-Current status: **99 tests passing** (47 unit, 29 adversarial, 13 property-based,
-10 integration/vector-conformance) against the reference implementation. The
-Dart client passes 22 vector-conformance tests against the same vectors, plus
-6 SessionManager tests (`mobile/test/`).
+Current status (run of 2026-10-16, `python scripts/verify.py`): **388/388 tests passing across 10 suites**.
+- Python reference: 144 unit, 49 adversarial, 18 property-based and 10 integration tests, plus the vector check.
+- 44 relay tests.
+- 29 end-to-end checks against the real relay and its database.
+- 91 Dart tests, including Messenger and chat-screen tests against the real relay.
+
+The per-test results are in `reports/verification.json`. That file is the evidence for every "Test" row below.
 
 ```
-Reproduce:  python3 -m pytest -q
-Vectors:    python3 scripts/generate_test_vectors.py --check
+Reproduce:  python scripts/verify.py
+Python:     python -m pytest -q
+Vectors:    python scripts/generate_test_vectors.py --check
 ```
 
 ---
@@ -129,10 +133,11 @@ Vectors:    python3 scripts/generate_test_vectors.py --check
 |---|---|
 | **Claim** | The set of metadata visible to the relay is explicitly enumerated, not minimised by assertion. |
 | **Mechanism** | Field-by-field data classification in `message.py`. |
-| **Evidence (measured)** | Ciphertext expansion is a **constant 57 bytes** (16-byte GCM tag + 41-byte header) at every payload size from 0 B to 16 KB — see `docs/benchmarks/reference-implementation.json`. Because expansion is constant, **ciphertext length reveals plaintext length exactly**. |
-| **The relay CAN observe** | Sender and recipient account/device identifiers; session identifiers linking traffic; message timing and frequency; exact plaintext length; ratchet cadence and per-chain message counts; delivery and read state; IP address and connection timing. |
-| **The relay CANNOT observe** | Message content; any session, chain, root, or message key; any private key; safety numbers or verification state. |
-| **Limitation** | No padding, cover traffic, or sealed-sender mechanism is implemented. A traffic-analysis adversary is **not** defended against. This is stated plainly rather than described as "metadata-minimal". |
+| **Evidence (measured)** | Ciphertext expansion is a constant 57 bytes, so ciphertext length reveals the encrypted length exactly. Helo/2 pads before encryption (block-256 by default), so that length is a bucket rather than the message length. **E1** (`research/RESULTS.md`): on the synthetic short-message distribution, block-256 cuts length leakage from 7.6 to 0.33 bits per message. **E3**: reading the relay database recovers the full who-talks-to-whom graph, with times, while messages are queued. Delivered messages are deleted on acknowledgement. |
+| **The relay CAN observe** | Sender and recipient account/device identifiers; session identifiers linking traffic; message timing and frequency; **padded** length; ratchet cadence and per-chain message counts; the first message of each session (it is larger because of the PQXDH header); presence (subject to the users' privacy settings); blocks and reports; IP address and connection timing. |
+| **The relay CANNOT observe** | Message content; the *kind* of an encrypted payload (message, receipt, typing, reaction, edit, delete, profile, group change); attachment content, names or types; any session, chain, root or message key; any private key; safety numbers or verification state. |
+| **Test** | `test_short_messages_are_indistinguishable_by_size`; Dart `padding hides message length from the relay`; end-to-end `no conversation plaintext in database`, `no ML-KEM private seed in database`, `acknowledged ciphertext is deleted, not retained` |
+| **Limitation** | No cover traffic, sealed sender or mixing is implemented. A traffic-analysis adversary is **not** defended against. Padding only buckets sizes, and the E1 leakage figures hold for a synthetic distribution, not measured user data. |
 
 ### C12 — Fail-closed behaviour
 
@@ -164,6 +169,52 @@ Vectors:    python3 scripts/generate_test_vectors.py --check
 | **Evidence** | The diagnostics payload is searched for the root key, ratchet private key, and receiving chain key in both raw and hex form. All absent. |
 | **Limitation** | Cannot prevent a developer from calling `print()` directly. Enforcement requires the CI lint rules described in [§3](#3-not-yet-claimed). |
 
+### C15 — Hybrid post-quantum session establishment
+
+| | |
+|---|---|
+| **Claim** | Each new session's initial secret stays secret unless **both** X25519 and ML-KEM-768 are broken. This protects against an adversary who records traffic now and has a quantum computer later. |
+| **Mechanism** | PQXDH (PROTOCOL.md § 9): the ML-KEM-768 shared secret is put into the same HKDF as the X3DH DH outputs, under the distinct info string `Helo_PQXDH_X25519_SHA-256_ML-KEM-768_v1`. PQ prekeys are signed by the identity key. |
+| **Test** | `test_kem_secret_contributes_to_the_session_key`, `test_hybrid_and_classical_derivations_are_domain_separated`, `test_both_sides_derive_the_same_secret`, `test_forged_pq_prekey_signature_is_rejected`, `test_substituted_pq_prekey_is_rejected_before_any_kem_operation`, `test_tampered_kem_ciphertext_fails_authentication_without_plaintext`; the `pqxdh` vectors and encapsulation fixture (Dart against Python); Dart `two users exchange messages over a hybrid PQXDH session`; end-to-end `session uses the hybrid PQXDH handshake` |
+| **Evidence** | The Dart implementation (the `pqcrypto` package) reproduces OpenSSL's ML-KEM-768 encapsulation from the pinned fixture byte for byte. |
+| **Limitation** | **Establishment only.** The Double Ratchet is classical, so ratchet steps after the first are not post-quantum. This instantiation has not been formally analysed, and the Dart ML-KEM package has not been audited. |
+
+### C16 — No silent downgrade to classical
+
+| | |
+|---|---|
+| **Claim** | A relay or network attacker cannot make two Helo/2 clients set up a classical session without either side noticing. |
+| **Mechanism** | Initiators refuse bundles without a valid PQ prekey (`PostQuantumUnavailableError`). Responders refuse classical initial messages (`DowngradeRejectedError`). The header version and the presence of the KEM ciphertext must agree. Classical sessions need an explicit, confirmed setting and are labelled "Classical" in the UI. |
+| **Test** | `test_relay_stripping_the_pq_prekey_causes_refusal_not_downgrade`, `test_downgraded_initial_message_is_refused_by_hybrid_policy`, `test_downgraded_initial_message_never_decrypts_even_if_classical_allowed`, `test_header_version_and_pq_presence_must_agree`, `test_incompatible_client_without_pq_keys_fails_closed`; Dart `a contact without PQ prekeys is refused until classical is explicitly allowed` |
+| **Limitation** | A user who enables classical sessions accepts classical security for contacts that have no PQ keys. This is shown, not hidden. |
+
+### C17 — Attachment confidentiality and integrity
+
+| | |
+|---|---|
+| **Claim** | The relay stores attachment ciphertext it cannot read. Any change to the ciphertext (bits, order, truncation, extension or substitution) is detected before content is shown. |
+| **Mechanism** | A fresh key per file and STREAM over AES-256-GCM (PROTOCOL.md § 11). The key and the SHA-256 digest travel only inside an E2EE message. The relay serves a blob only to the devices listed as its recipients. |
+| **Test** | `test_any_flipped_bit_is_detected`, `test_reordered_chunks_are_detected`, `test_dropped_final_chunk_is_detected`, `test_truncated_bytes_are_detected`, `test_appended_bytes_are_detected`, `test_digest_detects_substitution`, `test_chunk_nonces_never_repeat_under_a_key`, plus property tests; Dart `attachments are encrypted on the device and only recipients can fetch them` |
+| **Limitation** | The relay sees ciphertext size, which is close to the file size, and the upload and download times. |
+
+### C18 — The relay cannot be used to impersonate a sender device
+
+| | |
+|---|---|
+| **Claim** | A client can only queue messages as its own device. The sender username a recipient sees is asserted by the relay from the authenticated token, not taken from the envelope. |
+| **Mechanism** | Sending requires a device token, and the relay checks `envelope.sender_device_id` against it. This fixes audit finding A1. |
+| **Test** | relay `a forged sender device id is refused`, `fetched messages carry the relay-asserted sender username`; end-to-end `relay refuses an envelope naming another device as sender` |
+| **Limitation** | This stops other *clients* from impersonating a device. It does not stop a *malicious relay*, which is why the recipient's session authentication (C2, C10) remains the real control. |
+
+### C19 — Receivers enforce who may edit, delete and administer
+
+| | |
+|---|---|
+| **Claim** | Only a message's author can edit it or delete it for everyone, and only group admins can change a group. A forged payload is ignored even if it decrypts. |
+| **Mechanism** | The author of a payload is the session's authenticated peer, never a payload field. Edit and delete windows are 15 min and 48 h. Group snapshots are versioned and applied only from an admin. |
+| **Test** | Dart `edits and deletions apply, and only the author can make them`, `a non-admin cannot change the group, even by forging the message`, `a removed member receives nothing sent after removal`, `a new member gets no history from before they joined` |
+| **Limitation** | A "delete for everyone" removes the message from compliant clients. It cannot remove a copy that the recipient has already saved. |
+
 ---
 
 ## 2. Cross-Implementation Conformance
@@ -184,14 +235,13 @@ These are architecturally provided for but **not implemented or not demonstrated
 
 | Property | Status |
 |---|---|
-| **Post-quantum security** | **Not claimed. No PQ primitive exists in this codebase.** The implementation is labelled "Classical X3DH + Double Ratchet" throughout. `x3dh.KeyEstablishment` defines the migration seam; `ClassicalX3DH.post_quantum` is `False`. |
-| Hardware-backed key storage | `CryptoStorage` / Android Keystore / iOS Keychain not yet implemented. C13 currently covers state encryption only. |
-| Relay backend | Not yet implemented. C1 is demonstrated against a simulated database dump, not a running server. |
-| Flutter client | Not yet implemented. |
-| Mobile performance | Benchmarks are reference-implementation figures on a desktop-class machine and are explicitly disclaimed as such in `scripts/benchmark.py`. **No mobile number is claimed.** |
-| Attachment encryption | Architecturally specified; not implemented. |
-| Multi-device / device revocation | State machine includes `SESSION_REVOKED`; fan-out and revocation propagation not implemented. |
+| **Post-quantum security of the ratchet** | **Not claimed.** Only session establishment is hybrid (C15). There is no post-quantum ratchet. |
+| Hardware-backed key storage | The client uses `flutter_secure_storage`, which is Android Keystore / iOS Keychain on those platforms. **Android and iOS builds have not been compiled or tested.** The web build keeps keys under a WebCrypto key in the same browser, which is not hardware-backed. |
+| Mobile platforms | The Dart client is verified by `flutter test` (91 tests) and in the browser. It has not been run on a phone. |
+| Mobile performance | Benchmarks and E2 are reference-implementation figures on a desktop-class machine. **No mobile number is claimed.** |
+| Device revocation propagation | The relay refuses a revoked device's token. Peers learn about revocation through directory lookups, not through a signed device list. |
 | Sealed sender / metadata minimisation | Not implemented. See C11. |
+| Push notifications | Not implemented. Notifications appear only while the app is open. |
 | Formal verification | Semi-formal only: an enforced state machine with rejected invalid transitions. No ProVerif/Tamarin model. |
 | Interoperability with Signal | Not attempted, not claimed. |
 

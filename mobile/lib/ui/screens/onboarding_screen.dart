@@ -1,16 +1,14 @@
-/// Account and device setup.
+/// Welcome, registration and sign-in.
 ///
-/// The security note on this screen is not decoration. Users routinely assume
-/// their account password protects their messages; it does not. Stating the
-/// separation up front is part of not misrepresenting what the app provides.
+/// The note on this screen is not decoration: users routinely assume their
+/// account password protects their messages. It does not, and saying so up
+/// front is part of not misrepresenting what the app provides.
 library;
-
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 
 import '../../data/relay_client.dart';
-import '../../domain/session_manager.dart';
+import '../../domain/messenger.dart';
 import '../../storage/crypto_storage.dart';
 import '../theme.dart';
 
@@ -18,65 +16,59 @@ class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
     required this.storage,
     required this.relay,
-    required this.onRegistered,
+    required this.onReady,
     super.key,
   });
 
   final CryptoStorage storage;
   final RelayClient relay;
-  final void Function(SessionManager) onRegistered;
+  final void Function(Messenger) onReady;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  final GlobalKey<FormState> _form = GlobalKey<FormState>();
   final TextEditingController _username = TextEditingController();
   final TextEditingController _password = TextEditingController();
-  bool _createAccount = true;
+  final TextEditingController _confirm = TextEditingController();
+  bool _signUp = true;
   bool _busy = false;
+  bool _obscure = true;
   String? _error;
 
-  String _generateDeviceId() {
-    final Random rng = Random.secure();
-    final String suffix = List<int>.generate(6, (_) => rng.nextInt(256))
-        .map((int b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
-    return 'device-$suffix';
-  }
+  static final RegExp _usernameRule = RegExp(r'^[a-z0-9][a-z0-9._-]{2,31}$');
 
   Future<void> _submit() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final String deviceId = _generateDeviceId();
-      final SessionManager manager = SessionManager(
+      final Messenger m = await Messenger.register(
         storage: widget.storage,
         relay: widget.relay,
-        deviceId: deviceId,
-      );
-      await manager.loadOrCreateIdentity();
-      await manager.registerWithRelay(
-        username: _username.text.trim(),
+        username: _username.text,
         password: _password.text,
-        createAccount: _createAccount,
+        createAccount: _signUp,
       );
-      widget.onRegistered(manager);
+      widget.onReady(m);
     } on RelayException catch (e) {
       setState(() => _error = switch (e.code) {
-            'username_taken' => 'That username is already registered.',
+            'username_taken' => 'That username is taken.',
+            // Same message for "no such user" and "wrong password": the relay
+            // deliberately does not reveal which.
             'invalid_credentials' => 'Incorrect username or password.',
             'weak_password' => 'Password must be at least 12 characters.',
-            'rate_limited' => 'Too many attempts. Wait and try again.',
-            'validation_failed' => 'Usernames may use letters, digits, '
-                '".", "_" and "-" only.',
+            'invalid_username' || 'validation_failed' =>
+              'Usernames are 3–32 characters: letters, digits, ".", "_" or "-".',
+            'rate_limited' => 'Too many attempts. Wait a few minutes and try again.',
             _ => 'The relay refused the request (${e.code}).',
           });
-    } catch (_) {
-      setState(() =>
-          _error = 'Could not reach the relay at ${widget.relay.baseUrl}.');
+    } on Object {
+      setState(() => _error = 'Could not reach the relay at ${widget.relay.baseUrl}.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -86,105 +78,151 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
     return Scaffold(
-      body: SafeArea(
+      body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              const SizedBox(height: 32),
-              const Icon(Icons.lock_outline,
-                  size: 40, color: HeloColors.accent),
-              const SizedBox(height: 14),
-              const Text('helo',
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+              Container(
+                width: 76,
+                height: 76,
+                alignment: Alignment.center,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: p.accent.withValues(alpha: 0.12)),
+                child: Icon(Icons.lock_rounded, size: 36, color: p.accent),
+              ),
+              const Text('HELO',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, letterSpacing: 3)),
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: 4)),
               const SizedBox(height: 6),
-              const Text(
-                'end-to-end encrypted messaging',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: HeloColors.textFaint, fontSize: 12),
-              ),
-              const SizedBox(height: 36),
-              TextField(
-                controller: _username,
-                decoration: const InputDecoration(hintText: 'username'),
-                autocorrect: false,
-                enableSuggestions: false,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _password,
-                obscureText: true,
-                decoration: const InputDecoration(
-                    hintText: 'password (12+ characters)'),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Checkbox(
-                    value: _createAccount,
-                    onChanged: (bool? v) =>
-                        setState(() => _createAccount = v ?? false),
-                  ),
-                  const Text('Create a new account',
-                      style: TextStyle(fontSize: 13)),
+              Text('Private messaging, end-to-end encrypted',
+                  textAlign: TextAlign.center, style: TextStyle(color: p.textSecondary)),
+              const SizedBox(height: 28),
+              SegmentedButton<bool>(
+                segments: const <ButtonSegment<bool>>[
+                  ButtonSegment<bool>(value: true, label: Text('Create account')),
+                  ButtonSegment<bool>(value: false, label: Text('Sign in')),
                 ],
+                selected: <bool>{_signUp},
+                onSelectionChanged: (Set<bool> v) => setState(() {
+                  _signUp = v.first;
+                  _error = null;
+                }),
               ),
-              if (_error != null) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(_error!,
-                    style: const TextStyle(
-                        color: HeloColors.danger, fontSize: 12)),
-              ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
+              Form(
+                key: _form,
+                child: AutofillGroup(
+                  child: Column(children: <Widget>[
+                    TextFormField(
+                      controller: _username,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      autofillHints: const <String>[AutofillHints.username],
+                      decoration: const InputDecoration(
+                          labelText: 'Username', prefixIcon: Icon(Icons.alternate_email_rounded)),
+                      validator: (String? v) {
+                        final String u = (v ?? '').trim().toLowerCase();
+                        if (u.isEmpty) return 'Enter a username';
+                        if (_signUp && !_usernameRule.hasMatch(u)) {
+                          return '3–32 characters: letters, digits, ".", "_" or "-"';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      autofillHints: <String>[_signUp ? AutofillHints.newPassword : AutofillHints.password],
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.password_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      validator: (String? v) =>
+                          (v ?? '').length < 12 ? 'At least 12 characters' : null,
+                      onFieldSubmitted: (_) => _signUp ? null : _submit(),
+                    ),
+                    if (_signUp) ...<Widget>[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _confirm,
+                        obscureText: _obscure,
+                        decoration: const InputDecoration(
+                            labelText: 'Confirm password', prefixIcon: Icon(Icons.password_rounded)),
+                        validator: (String? v) =>
+                            v != _password.text ? 'Passwords do not match' : null,
+                        onFieldSubmitted: (_) => _submit(),
+                      ),
+                    ],
+                  ]),
+                ),
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(children: <Widget>[
+                    Icon(Icons.error_outline_rounded, size: 18, color: p.danger),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_error!, style: TextStyle(color: p.danger, fontSize: 13))),
+                  ]),
+                ),
+              const SizedBox(height: 18),
               FilledButton(
                 onPressed: _busy ? null : _submit,
-                child: Text(_busy
-                    ? 'generating keys\u2026'
-                    : _createAccount
-                        ? 'Create account'
-                        : 'Sign in'),
+                child: _busy
+                    ? Row(mainAxisAlignment: MainAxisAlignment.center, children: <Widget>[
+                        SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: p.onAccent)),
+                        const SizedBox(width: 10),
+                        const Text('Generating keys on this device…'),
+                      ])
+                    : Text(_signUp ? 'Create account' : 'Sign in on this device'),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 26),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: HeloColors.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: HeloColors.border),
+                  color: p.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: p.border),
                 ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('What this password does \u2014 and does not do',
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700)),
-                    SizedBox(height: 8),
-                    Text(
-                      'Your password authenticates you to the relay server. It '
-                      'does NOT encrypt your messages and it cannot decrypt '
-                      'them. Message encryption uses keys generated on this '
-                      'device that never leave it \u2014 not even to the server, '
-                      'and not to us.\n\n'
-                      'This means: if you lose this device, your message '
-                      'history cannot be recovered by resetting your password. '
-                      'That is the intended behaviour, not a limitation.',
-                      style: TextStyle(
-                          color: HeloColors.textSecondary,
-                          fontSize: 11.5,
-                          height: 1.5),
-                    ),
-                  ],
-                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                  Row(children: <Widget>[
+                    Icon(Icons.info_outline_rounded, size: 16, color: p.accent),
+                    const SizedBox(width: 6),
+                    const Text('What your password does — and does not do',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your password only signs you in to the relay. It does not encrypt your messages '
+                    'and cannot decrypt them: message keys are generated on this device and never '
+                    'leave it.\n\n'
+                    'So there is no password-based recovery of history. Signing in on a new device '
+                    'creates a new, unverified device for your contacts, with no access to old '
+                    'messages. That is the intended trade-off of end-to-end encryption.',
+                    style: TextStyle(color: p.textSecondary, fontSize: 12.5, height: 1.5),
+                  ),
+                ]),
               ),
-            ],
+              const SizedBox(height: 10),
+              Text('Relay: ${widget.relay.baseUrl}',
+                  textAlign: TextAlign.center, style: TextStyle(color: p.textFaint, fontSize: 11)),
+            ]),
           ),
         ),
       ),
