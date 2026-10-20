@@ -92,14 +92,14 @@ already exists, and no feature is ever allowed to bypass it.
 | 30–31 | Audio / video attachments | IMPLEMENTED BUT NOT FULLY TESTED | in-app player (`video_player`); delivery tested; playback not yet checked in a real browser |
 | 32 | Voice messages | IMPLEMENTED BUT NOT FULLY TESTED | `record` (AAC, or 16 kHz WAV on Chrome/Firefox), 5 min cap; voice payload, forwarding and UI tested; real microphone not yet checked |
 | 33–35 | Groups, admins, membership | IMPLEMENTED AND TESTED | group fan-out, non-admin forgery, removal and new-member tests |
-| 36 | Invitations | PARTIALLY IMPLEMENTED | admins add members directly; no invite links |
+| 36 | Invitations | IMPLEMENTED AND TESTED | invite links (`an invite link lets someone join; guessed and revoked links do not`, mutation-checked), strict parsing test; UI not checked by hand |
 | 37 | Group pictures | IMPLEMENTED BUT NOT FULLY TESTED | carried in the admin-authorised group snapshot; no test covers the image |
 | 38 | Device & session management | PARTIALLY IMPLEMENTED | device list, revoke, logout-all tested; a user's own devices do not sync history with each other |
 | 39 | Identity verification | IMPLEMENTED AND TESTED (per device) | `safety numbers match on both sides and verification is per device`; QR scan: `scanning a contact's code verifies exactly that device…`, `qr_check` vectors, image decode tests; live camera not yet checked |
 | 40 | Security notifications | IMPLEMENTED BUT NOT FULLY TESTED | relay security events; in-chat notices for new or conflicting devices |
 | 41 | Privacy settings | IMPLEMENTED AND TESTED | presence, receipts and typing opt-outs tested |
 | 42 | Notification settings | PARTIALLY IMPLEMENTED | in-app banners and previews only; no push service |
-| 43 | Secure configuration | IMPLEMENTED BUT NOT FULLY TESTED | `.env.example`, CORS allowlist, `--lan` refusal |
+| 43 | Secure configuration | IMPLEMENTED BUT NOT FULLY TESTED | `.env.example`, CORS allowlist, HTTPS `--lan` demo with loopback-only proxy trust (relay test + `scripts/lan_smoke.py`) |
 | 44 | Responsive UI | IMPLEMENTED BUT NOT FULLY TESTED | checked in the browser at 375 px, 800 px and 1400 px, light and dark |
 | 45 | Error handling & recovery | IMPLEMENTED BUT NOT FULLY TESTED | outage, token renewal and relay-reset messages tested or checked by hand |
 | R-A | Hybrid PQ key establishment | IMPLEMENTED AND TESTED — EXPERIMENTAL | C15/C16 in SECURITY_CLAIMS.md; not formally analysed; ratchet stays classical |

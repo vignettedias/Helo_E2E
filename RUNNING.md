@@ -173,8 +173,45 @@ Options:
 - `--ports` changes or adds ports.
 - `--fresh` empties the relay database. Clear the tabs' site data as well, or they will hold identities
   the new relay has never seen; the app then says so and offers **Settings → Account → Reset this device**.
-- `--lan` refuses with an explanation. Browsers allow WebCrypto, which the web key store needs, only in
-  secure contexts, and `http://<LAN-IP>` is not one.
+- `--lan` makes the demo reachable from a phone on the same Wi-Fi (next section).
+
+### On your phone (`--lan`)
+
+```bash
+python scripts/run_demo.py --fresh --lan
+```
+
+- **What it does:**
+  - serves the app over **HTTPS**, with a self-signed certificate made for this PC's addresses and stored
+    in `backend/data/demo-tls/`;
+  - forwards the relay API on that same HTTPS origin, while the relay itself still listens on 127.0.0.1
+    only.
+- **Why HTTPS:** phones' browsers allow the key store, camera and microphone only on HTTPS pages.
+- **Steps:**
+  1. Connect the phone to the **same Wi-Fi** as the PC.
+  2. Open the `https://<address>:5000` URL printed by the script in Chrome (Android) or Safari (iPhone).
+     Use the address of the PC's "Wireless LAN adapter Wi-Fi" in `ipconfig`.
+  3. Get past the one-time certificate warning:
+     - **Chrome:** *Advanced → Proceed to … (unsafe)*.
+     - **Safari:** *Show Details → visit this website*.
+
+     This is expected for a self-signed demo certificate. It is never acceptable for a real deployment.
+  4. Register on the phone, register a second user on the PC (`https://localhost:5001`), and chat.
+- **If the phone cannot connect:**
+  - When Windows asks, allow **Python** through the firewall on **Private** networks. To check later:
+    Windows Security → Firewall → Allow an app.
+  - Make sure the Wi-Fi is set to *Private*, not *Public*.
+  - Some campus or guest networks block device-to-device traffic. A phone hotspot shared with the PC
+    works instead.
+- **Self-test from the PC** (uses this PC's registration quota, so restart the demo with `--fresh`
+  afterwards):
+
+```bash
+python scripts/lan_smoke.py 192.168.1.20
+```
+
+  Use the address the demo printed. It checks the page, the proxied API, a PQXDH conversation,
+  long-polling and per-client rate limiting.
 
 The web build stores keys via `flutter_secure_storage`'s browser backend —
 encrypted under a WebCrypto key kept in the same browser. That is fine for a
@@ -189,7 +226,7 @@ demo and much weaker than a phone keystore; see README → Known limitations.
 ```bash
 cd mobile
 flutter pub get
-flutter test          # 91 tests (needs node on PATH: they start the real relay)
+flutter test          # 93 tests (needs node on PATH: they start the real relay)
 flutter analyze
 ```
 

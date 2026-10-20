@@ -115,4 +115,7 @@ A fourth run followed after QR scanning, voice messages and media playback were 
 the fix for caption-less attachments being dropped. That run passed **388/388**: unit 144, Dart 91, the
 rest unchanged.
 
+A fifth run followed after HTTPS LAN mode (relay proxy trust, +1 relay test) and group invite links
+(+2 Dart tests). That run passed **391/391**: relay 45, Dart 93.
+
 The per-test detail for the latest run is in `reports/verification.json` and `reports/dashboard.html`.

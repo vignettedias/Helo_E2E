@@ -112,7 +112,7 @@ token renewal, restart persistence.
 |---|---|---|---|
 | A1 | **High** | **Relay trusts a client-supplied sender id.** `POST /messages` stores `envelope.sender_device_id` as given, authenticated only by an *account* token. A malicious account can send a prekey message claiming to be `alice-device`; a recipient with no session for that id establishes one bound to the attacker's identity key **under Alice's device id**. Safety numbers would differ, but first contact is TOFU, so this is a practical impersonation path. | `server.js` `POST /messages`; `session_manager.dart` `receive()` keys conversations by relay-reported sender |
 | A2 | Medium | Client cannot discover another user's devices; users must exchange opaque device ids out of band. | no lookup endpoint |
-| A3 | Medium | `run_demo.py --lan` cannot work: browsers expose WebCrypto (`crypto.subtle`, used by the web key store) only in secure contexts, and `http://<LAN-IP>` is not one. | WebCrypto secure-context rule |
+| A3 | Medium | `run_demo.py --lan` cannot work: browsers expose WebCrypto (`crypto.subtle`, used by the web key store) only in secure contexts, and `http://<LAN-IP>` is not one. **Resolved (2026-10-20):** `--lan` now serves HTTPS with a self-signed demo certificate and proxies the relay on the same origin. | WebCrypto secure-context rule |
 | A4 | Low | Exact plaintext length is visible to the relay (no padding). Documented, not mitigated. | `PRIVACY.md` |
 | A5 | Low | Web client stores keys and refresh token in browser storage encrypted under a WebCrypto key held by the same browser — not hardware-backed. Documented in README. | `flutter_secure_storage` web backend |
 

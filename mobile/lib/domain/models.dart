@@ -122,6 +122,34 @@ class ChatMessage {
 
 /// Local view of a group. Changes are accepted only under the rules in
 /// groups.dart; this class just holds the current snapshot.
+/// An invite link an admin created. Kept ONLY on that admin's device: the
+/// secret is never part of the group snapshot, so other members cannot see or
+/// use it, and revoking is just forgetting it.
+class GroupInvite {
+  GroupInvite({required this.secret, required this.createdMs, required this.expiresMs, this.uses = 0});
+
+  /// How long a link works, and how many people can join with it.
+  static const Duration lifetime = Duration(days: 7);
+  static const int maxUses = 50;
+
+  final String secret; // 128-bit, hex
+  final int createdMs;
+  final int expiresMs;
+  int uses;
+
+  bool usableAt(DateTime now) => now.millisecondsSinceEpoch < expiresMs && uses < maxUses;
+
+  Map<String, Object?> toJson() =>
+      <String, Object?>{'secret': secret, 'created': createdMs, 'expires': expiresMs, 'uses': uses};
+
+  static GroupInvite fromJson(Map<String, dynamic> m) => GroupInvite(
+        secret: m['secret'] as String,
+        createdMs: m['created'] as int,
+        expiresMs: m['expires'] as int,
+        uses: m['uses'] as int? ?? 0,
+      );
+}
+
 class GroupState {
   GroupState({
     required this.gid,
@@ -144,6 +172,9 @@ class GroupState {
   /// stays readable but nothing more is sent or accepted.
   bool removed;
 
+  /// Invite links created on THIS device (local only, never sent).
+  List<GroupInvite> invites = <GroupInvite>[];
+
   GroupSnapshot toSnapshot() => GroupSnapshot(
         gid: gid, version: version, name: name,
         members: List<String>.of(members), admins: List<String>.of(admins), avatar: avatar,
@@ -157,10 +188,15 @@ class GroupState {
   Map<String, Object?> toJson() => <String, Object?>{
         ...toSnapshot().toJson(),
         if (removed) 'removed': true,
+        if (invites.isNotEmpty) 'invites': invites.map((GroupInvite i) => i.toJson()).toList(),
       };
 
-  static GroupState fromJson(Map<String, dynamic> m) =>
-      fromSnapshot(GroupSnapshot.fromJson(m))..removed = m['removed'] == true;
+  static GroupState fromJson(Map<String, dynamic> m) => fromSnapshot(GroupSnapshot.fromJson(m))
+    ..removed = m['removed'] == true
+    ..invites = (m['invites'] as List<Object?>? ?? <Object?>[])
+        .whereType<Map<String, dynamic>>()
+        .map(GroupInvite.fromJson)
+        .toList();
 }
 
 enum ConversationType { direct, group }
@@ -326,4 +362,30 @@ class MyProfile {
         displayName: m['name'] as String? ?? '',
         avatar: m['avatar'] == null ? null : b64d(m['avatar']! as String),
       );
+}
+
+const String invitePrefix = 'helo:invite:v1:';
+
+/// `helo:invite:v1:<gid>:<admin username>:<128-bit secret, hex>`.
+String inviteLinkText(String gid, String admin, String secret) => '$invitePrefix$gid:$admin:$secret';
+
+class ParsedInvite {
+  const ParsedInvite(this.gid, this.admin, this.secret);
+
+  final String gid;
+  final String admin;
+  final String secret;
+
+  static final RegExp _hex32 = RegExp(r'^[0-9a-f]{32}$');
+  static final RegExp _user = RegExp(r'^[a-z0-9][a-z0-9._-]{2,31}$');
+
+  /// Strict: anything not exactly of the documented shape is null.
+  static ParsedInvite? parse(String text) {
+    final String t = text.trim();
+    if (t.length > 200 || !t.startsWith(invitePrefix)) return null;
+    final List<String> parts = t.substring(invitePrefix.length).split(':');
+    if (parts.length != 3) return null;
+    if (!_hex32.hasMatch(parts[0]) || !_user.hasMatch(parts[1]) || !_hex32.hasMatch(parts[2])) return null;
+    return ParsedInvite(parts[0], parts[1], parts[2]);
+  }
 }

@@ -34,7 +34,7 @@ const int maxGroupMembers = 256;
 const int maxInlineImageBytes = 48 * 1024;
 const int maxAttachmentsPerMessage = 10;
 
-enum PayloadKind { msg, react, edit, del, rcpt, typing, profile, timer, group }
+enum PayloadKind { msg, react, edit, del, rcpt, typing, profile, timer, group, join }
 
 enum ReceiptKind { delivered, read }
 
@@ -233,6 +233,7 @@ class AppPayload {
     this.timerSeconds,
     this.groupOp,
     this.group,
+    this.inviteSecret,
   });
 
   final String id;
@@ -257,6 +258,9 @@ class AppPayload {
 
   // typing
   final bool? typingOn;
+
+  // join: the secret of a group invite link, sent only to the admin who made it
+  final String? inviteSecret;
 
   // profile
   final String? displayName;
@@ -291,6 +295,7 @@ class AppPayload {
         if (timerSeconds != null) 'seconds': timerSeconds,
         if (groupOp != null) 'op': groupOp!.name,
         if (group != null) 'group': group!.toJson(),
+        if (inviteSecret != null) 'secret': inviteSecret,
       };
 
   /// JSON → padded plaintext ready for the ratchet.
@@ -397,6 +402,10 @@ class AppPayload {
         }
         return AppPayload(
             id: id, timestampMs: ts, kind: kind, conv: conv, groupOp: op, group: snapshot);
+      case PayloadKind.join:
+        if (!conv!.isGroup) throw const InvalidEncodingError('a join request names a group');
+        return AppPayload(
+            id: id, timestampMs: ts, kind: kind, conv: conv, inviteSecret: _hexId(m['secret'], 'secret'));
     }
   }
 }

@@ -61,6 +61,7 @@ They are kinds of end-to-end-encrypted `AppPayload` carried inside ordinary enve
 | `HOST` | `0.0.0.0` | bind address |
 | `DB_PATH` | `./data/helo.db` | SQLite file (`node:sqlite`; migrations via `PRAGMA user_version`) |
 | `CORS_ORIGINS` | empty (CORS off) | comma-separated exact origins allowed to call the relay from a browser |
+| `TRUST_PROXY_LOOPBACK` | `0` | `1` = for requests arriving FROM loopback only, take the client address for rate limiting from the last `X-Forwarded-For` entry (set by a reverse proxy on the same machine, e.g. `run_demo.py --lan`). Requests from any other address always use the TCP peer. |
 | `MAX_ATTACHMENT_BYTES` | 26214400 (25 MiB) | upper bound for one encrypted attachment |
 
 See `.env.example`.

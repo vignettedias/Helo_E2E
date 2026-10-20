@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../crypto/identity.dart' show QrCheck;
@@ -455,6 +455,57 @@ class _ConversationInfoState extends State<ConversationInfo> {
     ]);
   }
 
+  Future<void> _showInvite(Conversation c) async {
+    final String link = _m.createInviteLink(c.id);
+    final HeloPalette p = HeloPalette.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Invite link'),
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(10),
+                color: Colors.white,
+                child: QrImageView(data: link, size: 180, backgroundColor: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              SelectableText(link, style: const TextStyle(fontSize: 11.5)),
+              const SizedBox(height: 10),
+              Text(
+                'Anyone with this link can join. It works for 7 days or 50 joins, and only while '
+                'your app is online to accept requests (your device checks the link; the relay '
+                'never sees it). Share it privately.',
+                style: TextStyle(color: p.textSecondary, fontSize: 12),
+              ),
+            ]),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              _m.revokeInviteLinks(c.id);
+              Navigator.pop(ctx);
+              _toast('All invite links for this group were revoked');
+            },
+            child: Text('Revoke all', style: TextStyle(color: p.danger)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: link));
+              if (ctx.mounted) Navigator.pop(ctx);
+              _toast('Invite link copied');
+            },
+            child: const Text('Copy'),
+          ),
+        ],
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Widget _membersCard(Conversation c, HeloPalette p) {
     final GroupState g = c.group!;
     final bool admin = g.admins.contains(_m.username) && !g.removed;
@@ -470,6 +521,17 @@ class _ConversationInfoState extends State<ConversationInfo> {
             if (names == null || names.trim().isEmpty) return;
             await _guard(() => _m.addMembers(c.id, names.split(',')), done: 'Members added');
           },
+        ),
+      if (admin)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          leading: Icon(Icons.link_rounded, color: p.accent),
+          title: Text('Invite link', style: TextStyle(color: p.accent)),
+          subtitle: Text(
+              g.invites.isEmpty ? 'Let people join by link' : '${g.invites.length} active link(s)',
+              style: TextStyle(fontSize: 11.5, color: p.textFaint)),
+          onTap: () => _showInvite(c),
         ),
       for (final String u in g.members)
         ListTile(

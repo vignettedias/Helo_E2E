@@ -4,6 +4,7 @@
     python scripts/run_demo.py            # serve an existing build
     python scripts/run_demo.py --build    # run `flutter build web` first
     python scripts/run_demo.py --fresh    # start from an empty relay database
+    python scripts/run_demo.py --lan      # HTTPS on this Wi-Fi, so a phone can join
 
 The web client is served on TWO ports (default 5000 and 5001). Each port is a
 separate browser origin, so each gets its own key storage: open one tab per
@@ -12,20 +13,33 @@ user and Alice and Bob are genuinely different devices, in one browser.
 The relay is started with a CORS allowlist containing exactly those origins.
 CORS is off in every other configuration; see RUNNING.md.
 
-Standard library only. This is a development convenience, not a deployment:
-the relay speaks plain HTTP here, which is acceptable only on localhost.
+--lan serves the app over HTTPS with a self-signed certificate made for this
+machine's LAN address, and forwards the relay API on the same origin, so the
+relay itself still listens on 127.0.0.1 only. Browsers allow the key store,
+camera and microphone only on https:// (or localhost), which is why plain HTTP
+on a LAN address cannot work. The phone shows a certificate warning once; that
+is expected for a self-signed demo certificate and is NOT acceptable for a real
+deployment (use a real certificate, see docker/).
+
+Standard library plus `cryptography` (already needed by the reference
+implementation) for the --lan certificate. This is a development convenience,
+not a deployment.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import functools
+import http.client
 import http.server
+import ipaddress
 import json
 import os
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -87,6 +101,154 @@ class StaticHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
 
+# First path segments that belong to the relay API (backend/src/routes/*.js).
+RELAY_PREFIXES = frozenset({
+    "auth", "devices", "prekeys", "users", "presence", "messages", "delivery",
+    "attachments", "me", "reports", "health",
+})
+_FORWARD_REQUEST_HEADERS = ("authorization", "content-type", "accept", "last-event-id")
+_HOP_BY_HOP = frozenset({"connection", "keep-alive", "transfer-encoding", "te", "trailer",
+                         "upgrade", "proxy-authenticate", "proxy-authorization"})
+
+
+class ProxyingHandler(StaticHandler):
+    """--lan: static files plus the relay API on the SAME https origin.
+
+    Same origin means no mixed content and no CORS. The real client address is
+    passed in X-Forwarded-For, which the relay honours only from loopback and
+    only with TRUST_PROXY_LOOPBACK=1 (so rate limits stay per device).
+    """
+
+    relay_port: ClassVar[int] = 8443
+
+    def _is_relay(self) -> bool:
+        return self.path.split("?", 1)[0].strip("/").split("/", 1)[0] in RELAY_PREFIXES
+
+    def _proxy(self) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length else None
+        headers = {k: v for k, v in self.headers.items() if k.lower() in _FORWARD_REQUEST_HEADERS}
+        headers["X-Forwarded-For"] = self.client_address[0]
+        conn = http.client.HTTPConnection("127.0.0.1", self.relay_port, timeout=90)
+        try:
+            conn.request(self.command, self.path, body=body, headers=headers)
+            resp = conn.getresponse()
+            self.send_response(resp.status)
+            streaming = resp.getheader("Content-Length") is None
+            for k, v in resp.getheaders():
+                if k.lower() not in _HOP_BY_HOP:
+                    self.send_header(k, v)
+            if streaming:
+                self.send_header("Connection", "close")
+                self.close_connection = True
+            self.end_headers()
+            while True:
+                chunk = resp.read1(65536) if streaming else resp.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                if streaming:
+                    self.wfile.flush()
+        except OSError:
+            self.send_error(502, "relay unavailable")
+        finally:
+            conn.close()
+
+    def do_GET(self) -> None:
+        if self._is_relay():
+            self._proxy()
+        else:
+            super().do_GET()
+
+    def do_POST(self) -> None:
+        self._proxy() if self._is_relay() else self.send_error(404)
+
+    def do_PUT(self) -> None:
+        self._proxy() if self._is_relay() else self.send_error(404)
+
+    def do_DELETE(self) -> None:
+        self._proxy() if self._is_relay() else self.send_error(404)
+
+
+def demo_certificate(hosts: list[str], directory: Path) -> tuple[Path, Path]:
+    """A self-signed certificate for exactly these names, reused while valid.
+
+    Demo only: generated locally, never leaves this machine, valid 30 days.
+    """
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    directory.mkdir(parents=True, exist_ok=True)
+    cert_path, key_path, meta_path = directory / "cert.pem", directory / "key.pem", directory / "hosts.json"
+    now = dt.datetime.now(dt.UTC)
+    if cert_path.exists() and key_path.exists() and meta_path.exists():
+        try:
+            same = json.loads(meta_path.read_text()) == sorted(hosts)
+            cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+            if same and cert.not_valid_after_utc > now + dt.timedelta(days=1):
+                return cert_path, key_path
+        except (ValueError, OSError):
+            pass
+    key = ec.generate_private_key(ec.SECP256R1())
+    names: list[x509.GeneralName] = []
+    for h in hosts:
+        try:
+            names.append(x509.IPAddress(ipaddress.ip_address(h)))
+        except ValueError:
+            names.append(x509.DNSName(h))
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Helo local demo")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject).issuer_name(subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(minutes=5))
+        .not_valid_after(now + dt.timedelta(days=30))
+        .add_extension(x509.SubjectAlternativeName(names), critical=False)
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+                                           serialization.PrivateFormat.PKCS8,
+                                           serialization.NoEncryption()))
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    meta_path.write_text(json.dumps(sorted(hosts)))
+    return cert_path, key_path
+
+
+class QuietHTTPServer(http.server.ThreadingHTTPServer):
+    """Logs a one-line note instead of a traceback for expected TLS failures.
+
+    A browser seeing the self-signed certificate for the first time closes the
+    connection with "certificate unknown"; that is normal, not a server error.
+    """
+
+    def handle_error(self, request, client_address) -> None:
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ssl.SSLError, ConnectionError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
+
+def all_ipv4_addresses() -> list[str]:
+    """Every non-loopback IPv4 address of this machine, default route first."""
+    found: list[str] = []
+    first = lan_address()
+    if first:
+        found.append(first)
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            addr = info[4][0]
+            if addr not in found and not addr.startswith("127."):
+                found.append(addr)
+    except OSError:
+        pass
+    return found
+
+
 def lan_address() -> str | None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -132,22 +294,13 @@ def main() -> int:
                         help="comma-separated web ports, one per demo user (default 5000,5001)")
     parser.add_argument("--relay-port", type=int, default=8443)
     parser.add_argument("--lan", action="store_true",
-                        help="(unavailable) see the message printed when used")
+                        help="serve over HTTPS on this network so a phone can join (self-signed)")
     parser.add_argument("--build", action="store_true", help="run `flutter build web` first")
     parser.add_argument("--fresh", action="store_true", help="delete the demo relay database first")
     args = parser.parse_args()
 
     if os.name == "nt":
         os.system("")  # enable ANSI colours in the Windows console
-
-    if args.lan:
-        # Browsers expose WebCrypto (crypto.subtle), which the web client's key
-        # store needs, only in secure contexts: https:// pages or localhost.
-        # http://<LAN-IP> is neither, so a phone opening the demo over plain
-        # HTTP cannot create keys. Refuse rather than start a broken demo.
-        sys.exit("--lan is unavailable: browsers allow the web client's key storage only on "
-                 "https:// or localhost, and this demo serves plain HTTP. Use localhost on "
-                 "this machine. (Serving the demo over HTTPS is on the roadmap.)")
 
     if args.build:
         build_web()
@@ -159,15 +312,20 @@ def main() -> int:
 
     ports = [int(p) for p in args.ports.split(",") if p.strip()]
     bind = "0.0.0.0" if args.lan else "127.0.0.1"
-    for port in [args.relay_port, *ports]:
+    if not port_free("127.0.0.1", args.relay_port):
+        sys.exit(f"port {args.relay_port} is already in use (another demo still running?)")
+    for port in ports:
         if not port_free(bind, port):
             sys.exit(f"port {port} is already in use (another demo still running?)")
 
     hosts = ["localhost", "127.0.0.1"]
-    lan = lan_address() if args.lan else None
-    if lan:
-        hosts.append(lan)
-    origins = [f"http://{h}:{p}" for h in hosts for p in ports]
+    lan_ips = all_ipv4_addresses() if args.lan else []
+    if args.lan and not lan_ips:
+        sys.exit("--lan: could not determine this machine's network address (is Wi-Fi connected?)")
+    lan = lan_ips[0] if lan_ips else None
+    hosts.extend(lan_ips)
+    # --lan: the page and the API share one https origin, so no CORS is needed.
+    origins = [] if args.lan else [f"http://{h}:{p}" for h in hosts for p in ports]
 
     DATA.mkdir(parents=True, exist_ok=True)
     db = DATA / "demo.db"
@@ -179,31 +337,56 @@ def main() -> int:
 
     relay = subprocess.Popen(
         [node, str(RELAY)],
-        env={**os.environ, "PORT": str(args.relay_port), "HOST": bind,
-             "DB_PATH": str(db), "CORS_ORIGINS": ",".join(origins)},
+        # The relay always listens on loopback only; --lan reaches it through
+        # the HTTPS proxy below.
+        env={**os.environ, "PORT": str(args.relay_port), "HOST": "127.0.0.1",
+             "DB_PATH": str(db), "CORS_ORIGINS": ",".join(origins),
+             "TRUST_PROXY_LOOPBACK": "1" if args.lan else "0"},
         stdout=log_file, stderr=subprocess.STDOUT,
     )
     if not wait_for_relay(args.relay_port):
         relay.terminate()
         sys.exit(f"relay failed to start; see {log_path}")
 
-    handler = functools.partial(StaticHandler, directory=str(WEB_BUILD))
+    tls: ssl.SSLContext | None = None
+    if args.lan:
+        ProxyingHandler.relay_port = args.relay_port
+        handler = functools.partial(ProxyingHandler, directory=str(WEB_BUILD))
+        cert, key = demo_certificate(hosts, DATA / "demo-tls")
+        tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.minimum_version = ssl.TLSVersion.TLSv1_2
+        tls.load_cert_chain(cert, key)
+    else:
+        handler = functools.partial(StaticHandler, directory=str(WEB_BUILD))
     servers = []
     for port in ports:
-        server = http.server.ThreadingHTTPServer((bind, port), handler)
+        server = QuietHTTPServer((bind, port), handler)
+        if tls is not None:
+            # Handshake in the request thread, so one slow client cannot stall accept().
+            server.socket = tls.wrap_socket(server.socket, server_side=True,
+                                            do_handshake_on_connect=False)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         servers.append(server)
 
     users = ["Alice", "Bob", "Carol", "Dave", "Erin", "Frank"]
     print(f"\n{BOLD}Helo demo running{RESET}")
     print(f"  relay   http://127.0.0.1:{args.relay_port}  {DIM}(log: {log_path}){RESET}")
+    scheme = "https" if args.lan else "http"
     for i, port in enumerate(ports):
         name = users[i] if i < len(users) else f"User {i + 1}"
-        print(f"  {name:<7} {GREEN}http://localhost:{port}{RESET}")
-        if lan:
-            print(f"  {'':<7} {DIM}http://{lan}:{port}  (other devices on this network){RESET}")
+        print(f"  {name:<7} {GREEN}{scheme}://localhost:{port}{RESET}")
+        for ip in lan_ips:
+            print(f"  {'':<7} {GREEN}https://{ip}:{port}{RESET}  {DIM}(phone / other devices on the same Wi-Fi){RESET}")
     print(f"\n{DIM}Each port is a separate origin with its own keys. Register a user in each\n"
-          f"tab, copy one device id into the other's New chat, and talk.{RESET}")
+          f"tab, then start a chat by username.{RESET}")
+    if len(lan_ips) > 1:
+        print(f"{DIM}Several network addresses: use the one shown under 'Wireless LAN adapter\n"
+              f"Wi-Fi' in `ipconfig` (normally the first above). 192.168.56.x is usually\n"
+              f"VirtualBox.{RESET}")
+    if lan:
+        print(f"{YELLOW}Self-signed demo certificate: each browser warns once. Choose\n"
+              f"Advanced -> Proceed (Chrome) or Show Details -> visit (Safari). If the phone\n"
+              f"cannot connect, allow Python through the Windows firewall on Private networks.{RESET}")
     if args.fresh:
         print(f"{YELLOW}Fresh relay database: clear site data in the browser too, or old tabs will\n"
               f"still hold identities this relay has never seen.{RESET}")

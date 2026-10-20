@@ -299,6 +299,20 @@ holds for the viewer))>`. The scanner compares both halves byte for byte with wh
 - **OWN_KEY_MISMATCH** if the peer holds a different key for the scanner; this is the man-in-the-middle signal.
 - **NOT_HELO** for anything else, including codes over 512 characters.
 
+**Group invite links.** The format is `helo:invite:v1:<gid>:<admin username>:<128-bit secret, hex>`.
+- The admin who creates a link keeps its secret on their own device only. It is never in the group
+  snapshot and never sent to the relay.
+- A joiner sends `{"k": "join", "conv": {"t": "g", "gid": ...}, "secret": ...}` to that admin, end to end
+  encrypted.
+- The admin's client adds the sender through the normal admin update only if all of these hold:
+  - it is an admin of that group;
+  - the sender is not already a member and is not blocked;
+  - the group has room;
+  - the secret matches an unexpired, unrevoked link, compared in constant time.
+- Links expire after 7 days or 50 joins.
+- Anyone holding a link can join, so it must be shared privately. Joins happen only while the creating
+  admin's app is online.
+
 Receivers enforce authorisation themselves:
 - only the author may edit or delete a message (edits within 15 min, deletes for everyone within 48 h);
 - only group admins may change a group, and the group snapshot is versioned;

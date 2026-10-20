@@ -9,11 +9,11 @@ test, it is not claimed.* Properties that are architecturally intended but not
 yet demonstrated appear in [§3 Not Yet Claimed](#3-not-yet-claimed), not in the
 claims table.
 
-Current status (run of 2026-10-16, `python scripts/verify.py`): **388/388 tests passing across 10 suites**.
+Current status (run of 2026-10-16, `python scripts/verify.py`): **391/391 tests passing across 10 suites**.
 - Python reference: 144 unit, 49 adversarial, 18 property-based and 10 integration tests, plus the vector check.
-- 44 relay tests.
+- 45 relay tests.
 - 29 end-to-end checks against the real relay and its database.
-- 91 Dart tests, including Messenger and chat-screen tests against the real relay.
+- 93 Dart tests, including Messenger and chat-screen tests against the real relay.
 
 The per-test results are in `reports/verification.json`. That file is the evidence for every "Test" row below.
 
@@ -237,7 +237,7 @@ These are architecturally provided for but **not implemented or not demonstrated
 |---|---|
 | **Post-quantum security of the ratchet** | **Not claimed.** Only session establishment is hybrid (C15). There is no post-quantum ratchet. |
 | Hardware-backed key storage | The client uses `flutter_secure_storage`, which is Android Keystore / iOS Keychain on those platforms. **Android and iOS builds have not been compiled or tested.** The web build keeps keys under a WebCrypto key in the same browser, which is not hardware-backed. |
-| Mobile platforms | The Dart client is verified by `flutter test` (91 tests) and in the browser. It has not been run on a phone. |
+| Mobile platforms | The Dart client is verified by `flutter test` (93 tests) and in the browser. It has not been run on a phone. |
 | Mobile performance | Benchmarks and E2 are reference-implementation figures on a desktop-class machine. **No mobile number is claimed.** |
 | Device revocation propagation | The relay refuses a revoked device's token. Peers learn about revocation through directory lookups, not through a signed device list. |
 | Sealed sender / metadata minimisation | Not implemented. See C11. |

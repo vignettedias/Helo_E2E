@@ -439,3 +439,18 @@ test('a v1 database upgrades in place without losing data', () => {
   again.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('X-Forwarded-For is honoured only from a loopback proxy, and only when enabled', () => {
+  const { clientIp } = require('../src/server');
+  const req = (peer, fwd) => ({ socket: { remoteAddress: peer }, headers: fwd ? { 'x-forwarded-for': fwd } : {} });
+  // Off by default: the TCP peer, whatever the header says.
+  assert.strictEqual(clientIp(req('127.0.0.1', '10.0.0.7'), false), '127.0.0.1');
+  // On: a loopback proxy names the client; the LAST entry is the proxy's.
+  assert.strictEqual(clientIp(req('127.0.0.1', '10.0.0.7'), true), '10.0.0.7');
+  assert.strictEqual(clientIp(req('::1', '1.2.3.4, 10.0.0.7'), true), '10.0.0.7');
+  // A remote client can never pick its own bucket.
+  assert.strictEqual(clientIp(req('203.0.113.9', '10.0.0.7'), true), '203.0.113.9');
+  // Garbage is ignored.
+  assert.strictEqual(clientIp(req('127.0.0.1', 'not an ip'), true), '127.0.0.1');
+  assert.strictEqual(clientIp(req('127.0.0.1', 'x'.repeat(300)), true), '127.0.0.1');
+});

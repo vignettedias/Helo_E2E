@@ -19,14 +19,16 @@ const String _relayOverride = String.fromEnvironment('HELO_RELAY_URL');
 ///   flutter run --dart-define=HELO_RELAY_URL=https://relay.example.com
 ///
 /// Defaults: a browser build served over plain HTTP talks to port 8443 on the
-/// host that served the page (one served over HTTPS assumes the TLS proxy on
-/// the same host); the Android emulator reaches the host machine at 10.0.2.2;
+/// host that served the page; one served over HTTPS talks to its own origin
+/// (a TLS proxy forwards the API); the Android emulator reaches the host at 10.0.2.2;
 /// everything else uses localhost.
 String get relayUrl {
   if (_relayOverride.isNotEmpty) return _relayOverride;
   if (kIsWeb) {
     final Uri page = Uri.base;
-    return page.scheme == 'https' ? 'https://${page.host}' : 'http://${page.host}:8443';
+    // HTTPS: the relay is reached through the same origin (a TLS proxy in
+    // front of it, or `run_demo.py --lan`), so the port is kept.
+    return page.scheme == 'https' ? page.origin : 'http://${page.host}:8443';
   }
   if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:8443';
   return 'http://localhost:8443';

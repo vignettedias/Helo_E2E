@@ -536,6 +536,59 @@ void main() {
     expect(bodies(carol, g.id).last, 'hi from bob');
   });
 
+  test('an invite link lets someone join; guessed and revoked links do not', () async {
+    final (Messenger alice, _) = await relay.user('alice');
+    final (Messenger bob, _) = await relay.user('bob');
+    final (Messenger carol, _) = await relay.user('carol');
+    final Conversation g = await alice.createGroup('Lab', <String>['bob']);
+    await bob.sync();
+
+    // Only admins can make links.
+    expect(() => bob.createInviteLink(g.id), throwsA(isA<MessengerException>()));
+
+    final String link = alice.createInviteLink(g.id);
+    final ParsedInvite inv = ParsedInvite.parse(link)!;
+    expect(inv.admin, 'alice');
+
+    // A guessed secret is refused.
+    await carol.requestJoinByInvite(inviteLinkText(inv.gid, 'alice', '0' * 32));
+    await alice.sync();
+    expect(alice.conversations[g.id]!.group!.members, isNot(contains('carol')));
+
+    // The real link works: Carol is added and then receives group messages.
+    expect(await carol.requestJoinByInvite(link), 'alice');
+    await alice.sync();
+    await syncAll(<Messenger>[carol, bob]);
+    expect(alice.conversations[g.id]!.group!.members, contains('carol'));
+    expect(carol.conversations[g.id], isNotNull);
+    await alice.sendText(g.id, 'welcome carol');
+    await carol.sync();
+    expect(bodies(carol, g.id), contains('welcome carol'));
+    expect(alice.conversations[g.id]!.group!.toSnapshot().toJson().toString(), isNot(contains(inv.secret)),
+        reason: 'the secret never enters the shared group state');
+
+    // Revoked: after removal, the old link no longer gets Carol back in.
+    await alice.removeMember(g.id, 'carol');
+    await carol.sync();
+    alice.revokeInviteLinks(g.id);
+    await carol.requestJoinByInvite(link);
+    await alice.sync();
+    expect(alice.conversations[g.id]!.group!.members, isNot(contains('carol')));
+  });
+
+  test('invite links are parsed strictly', () {
+    const String gid = '0123456789abcdef0123456789abcdef';
+    const String sec = 'fedcba9876543210fedcba9876543210';
+    expect(ParsedInvite.parse(inviteLinkText(gid, 'alice', sec))!.secret, sec);
+    for (final String bad in <String>[
+      '', 'helo:invite:v1:', 'helo:invite:v2:$gid:alice:$sec', 'helo:invite:v1:$gid:alice',
+      'helo:invite:v1:$gid:alice:$sec:x', 'helo:invite:v1:${gid.toUpperCase()}:alice:$sec',
+      'helo:invite:v1:$gid:Al ice:$sec', 'helo:invite:v1:$gid:alice:${sec}00',
+    ]) {
+      expect(ParsedInvite.parse(bad), isNull, reason: bad);
+    }
+  });
+
   test('a non-admin cannot change the group, even by forging the message', () async {
     final (Messenger alice, _) = await relay.user('alice');
     final (Messenger bob, _) = await relay.user('bob');

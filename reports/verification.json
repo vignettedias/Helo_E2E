@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-16T18:22:12+05:30",
+  "generated_at": "2026-10-20T21:01:09+05:30",
   "environment": "Windows 11 · Python 3.14.6 · cryptography 50.0.0 (OpenSSL 4.0.1 9 Jun 2026) · Node v24.16.0 · Flutter 3.47.0",
   "totals": {
     "PASS": 10
   },
-  "tests_total": 388,
-  "tests_passed": 388,
+  "tests_total": 391,
+  "tests_passed": 391,
   "suites": [
     {
       "key": "unit",
@@ -16,7 +16,7 @@
       "status": "PASS",
       "passed": 144,
       "total": 144,
-      "duration_s": 1.6,
+      "duration_s": 3.6,
       "tests": [
         {
           "name": "tests.unit.test_padding_attachment::test_pad_round_trips[none-]",
@@ -604,7 +604,7 @@
       "status": "PASS",
       "passed": 49,
       "total": 49,
-      "duration_s": 1.1,
+      "duration_s": 1.5,
       "tests": [
         {
           "name": "tests.adversarial.test_adversarial::test_bitflip_in_ciphertext_fails_authentication",
@@ -812,7 +812,7 @@
       "status": "PASS",
       "passed": 18,
       "total": 18,
-      "duration_s": 3.9,
+      "duration_s": 4.7,
       "tests": [
         {
           "name": "tests.property.test_padding_attachment_properties::test_padding_round_trips_for_any_payload",
@@ -896,7 +896,7 @@
       "status": "PASS",
       "passed": 10,
       "total": 10,
-      "duration_s": 0.9,
+      "duration_s": 1.4,
       "tests": [
         {
           "name": "tests.integration.test_vectors_and_conversation::test_vector_hkdf",
@@ -948,7 +948,7 @@
       "status": "PASS",
       "passed": 1,
       "total": 1,
-      "duration_s": 0.2,
+      "duration_s": 0.3,
       "tests": [
         {
           "name": "tests/vectors/*.json reproduce",
@@ -963,9 +963,9 @@
       "description": "Real HTTP server per test: auth, device-bound sending (A1), prekeys incl. PQ, long-poll, groups fan-out, attachments, blocks, rate limits, migrations.",
       "command": "cd backend && node --test test/relay.test.js test/relay_v2.test.js",
       "status": "PASS",
-      "passed": 44,
-      "total": 44,
-      "duration_s": 7.9,
+      "passed": 45,
+      "total": 45,
+      "duration_s": 7.5,
       "tests": [
         {
           "name": "test::registration and login issue usable tokens",
@@ -1142,6 +1142,10 @@
         {
           "name": "test::a v1 database upgrades in place without losing data",
           "status": "PASS"
+        },
+        {
+          "name": "test::X-Forwarded-For is honoured only from a loopback proxy, and only when enabled",
+          "status": "PASS"
         }
       ]
     },
@@ -1153,7 +1157,7 @@
       "status": "PASS",
       "passed": 29,
       "total": 29,
-      "duration_s": 2.4,
+      "duration_s": 3.2,
       "tests": [
         {
           "name": "both accounts and devices registered",
@@ -1281,7 +1285,7 @@
       "status": "PASS",
       "passed": 1,
       "total": 1,
-      "duration_s": 2.3,
+      "duration_s": 0.4,
       "tests": [
         {
           "name": "ruff check",
@@ -1298,12 +1302,12 @@
       "status": "PASS",
       "passed": 1,
       "total": 1,
-      "duration_s": 37.1,
+      "duration_s": 12.9,
       "tests": [
         {
           "name": "flutter analyze",
           "status": "PASS",
-          "details": "Analyzing mobile...                                             \nNo issues found! (ran in 32.4s)"
+          "details": "Analyzing mobile...                                             \nNo issues found! (ran in 8.3s)"
         }
       ]
     },
@@ -1313,9 +1317,9 @@
       "description": "Dart crypto vs. the Python vectors, protocol v2 conformance, Messenger end to end and chat-screen widget tests against the REAL relay process.",
       "command": "cd mobile && flutter test",
       "status": "PASS",
-      "passed": 91,
-      "total": 91,
-      "duration_s": 121.5,
+      "passed": 93,
+      "total": 93,
+      "duration_s": 102.1,
       "tests": [
         {
           "name": "PQXDH conformance (against the reference and OpenSSL) info string matches the reference",
@@ -1394,10 +1398,6 @@
           "status": "PASS"
         },
         {
-          "name": "two users exchange messages over a hybrid PQXDH session",
-          "status": "PASS"
-        },
-        {
           "name": "a displayed code decodes from a PNG screenshot and verifies",
           "status": "PASS"
         },
@@ -1426,6 +1426,10 @@
           "status": "PASS"
         },
         {
+          "name": "two users exchange messages over a hybrid PQXDH session",
+          "status": "PASS"
+        },
+        {
           "name": "identity conformance identities reconstruct to the reference public keys",
           "status": "PASS"
         },
@@ -1434,7 +1438,7 @@
           "status": "PASS"
         },
         {
-          "name": "status goes sent → delivered → read, and only via E2EE receipts",
+          "name": "identity conformance safety number matches the reference exactly",
           "status": "PASS"
         },
         {
@@ -1451,10 +1455,6 @@
         },
         {
           "name": "an ordinary QR code (a URL) is read but is not a Helo code",
-          "status": "PASS"
-        },
-        {
-          "name": "identity conformance safety number matches the reference exactly",
           "status": "PASS"
         },
         {
@@ -1518,11 +1518,19 @@
           "status": "PASS"
         },
         {
+          "name": "status goes sent → delivered → read, and only via E2EE receipts",
+          "status": "PASS"
+        },
+        {
           "name": "tap on a bubble opens the actions sheet",
           "status": "PASS"
         },
         {
           "name": "read receipts are not sent when the reader disabled them",
+          "status": "PASS"
+        },
+        {
+          "name": "long-press on a bubble opens the actions sheet",
           "status": "PASS"
         },
         {
@@ -1534,7 +1542,7 @@
           "status": "PASS"
         },
         {
-          "name": "long-press on a bubble opens the actions sheet",
+          "name": "right-click on a bubble opens the actions sheet",
           "status": "PASS"
         },
         {
@@ -1546,10 +1554,6 @@
           "status": "PASS"
         },
         {
-          "name": "right-click on a bubble opens the actions sheet",
-          "status": "PASS"
-        },
-        {
           "name": "own message offers edit and delete for everyone",
           "status": "PASS"
         },
@@ -1558,11 +1562,11 @@
           "status": "PASS"
         },
         {
-          "name": "concurrent sends and receives never roll a ratchet back",
+          "name": "reacting from the sheet reaches the other side",
           "status": "PASS"
         },
         {
-          "name": "reacting from the sheet reaches the other side",
+          "name": "concurrent sends and receives never roll a ratchet back",
           "status": "PASS"
         },
         {
@@ -1574,11 +1578,11 @@
           "status": "PASS"
         },
         {
-          "name": "reset destroys local state and notifies the app",
+          "name": "reply from the sheet sends a quoted message",
           "status": "PASS"
         },
         {
-          "name": "reply from the sheet sends a quoted message",
+          "name": "reset destroys local state and notifies the app",
           "status": "PASS"
         },
         {
@@ -1590,11 +1594,11 @@
           "status": "PASS"
         },
         {
-          "name": "a payload delivered twice (fresh envelopes, same id) is shown once",
+          "name": "delete for everyone asks first, then reaches the other side",
           "status": "PASS"
         },
         {
-          "name": "delete for everyone asks first, then reaches the other side",
+          "name": "a payload delivered twice (fresh envelopes, same id) is shown once",
           "status": "PASS"
         },
         {
@@ -1610,11 +1614,11 @@
           "status": "PASS"
         },
         {
-          "name": "search finds messages across conversations",
+          "name": "recording without a microphone fails safe and returns to the text box",
           "status": "PASS"
         },
         {
-          "name": "recording without a microphone fails safe and returns to the text box",
+          "name": "search finds messages across conversations",
           "status": "PASS"
         },
         {
@@ -1643,6 +1647,14 @@
         },
         {
           "name": "group messages fan out to every member",
+          "status": "PASS"
+        },
+        {
+          "name": "an invite link lets someone join; guessed and revoked links do not",
+          "status": "PASS"
+        },
+        {
+          "name": "invite links are parsed strictly",
           "status": "PASS"
         },
         {

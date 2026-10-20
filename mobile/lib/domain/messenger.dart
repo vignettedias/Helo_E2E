@@ -916,6 +916,11 @@ class Messenger {
       await _applyGroup(sender, p);
       return;
     }
+    if (p.kind == PayloadKind.join) {
+      // Before the membership check: the requester is not a member yet.
+      await _handleJoinRequest(sender, p);
+      return;
+    }
 
     final Conversation? c = _conversationFor(sender, p.conv!, create: p.kind == PayloadKind.msg);
     if (c == null) return;
@@ -990,6 +995,7 @@ class Messenger {
         _markDirty(c);
       case PayloadKind.profile:
       case PayloadKind.group:
+      case PayloadKind.join:
         break; // handled above
     }
   }
@@ -1415,6 +1421,85 @@ class Messenger {
       throw const MessengerException('Image is too large.');
     }
     await _changeGroup(c, _next(c.group!, avatar: avatar, clearAvatar: avatar == null));
+  }
+
+  // ------------------------------------------------------------ invite links
+
+  /// Create an invite link for a group this user administers. Anyone holding
+  /// the link can ask to join; THIS device checks the secret and adds them,
+  /// so the link works while this device is online to receive the request.
+  String createInviteLink(String convId) {
+    final Conversation c = _conv(convId);
+    _requireAdmin(c);
+    final DateTime now = DateTime.now();
+    final GroupInvite invite = GroupInvite(
+      secret: _hex(defaultRandom.bytes(16)),
+      createdMs: now.millisecondsSinceEpoch,
+      expiresMs: now.add(GroupInvite.lifetime).millisecondsSinceEpoch,
+    );
+    c.group!.invites
+      ..removeWhere((GroupInvite i) => !i.usableAt(now))
+      ..add(invite);
+    _markDirty(c);
+    _emit();
+    return inviteLinkText(c.group!.gid, username, invite.secret);
+  }
+
+  /// Forget every invite link of a group: requests carrying them are refused.
+  void revokeInviteLinks(String convId) {
+    final Conversation c = _conv(convId);
+    _requireAdmin(c);
+    c.group!.invites.clear();
+    _markDirty(c);
+    _emit();
+  }
+
+  /// Send a join request for an invite link to the admin who created it.
+  /// Returns the admin's username; the group appears once they add you.
+  Future<String> requestJoinByInvite(String link) async {
+    final ParsedInvite? inv = ParsedInvite.parse(link);
+    if (inv == null) throw const MessengerException('That is not a HELO invite link.');
+    if (inv.admin == username) throw const MessengerException('This is your own invite link.');
+    final Conversation? existing = conversations[Conversation.groupId(inv.gid)];
+    if (existing != null && !existing.group!.removed) {
+      throw const MessengerException('You are already in this group.');
+    }
+    final Conversation dm = await openDirect(inv.admin);
+    await _send(dm, AppPayload(
+      id: _newId(),
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+      kind: PayloadKind.join,
+      conv: ConvRef.group(inv.gid),
+      inviteSecret: inv.secret,
+    ), users: <String>[inv.admin]);
+    _systemNotice(dm, 'You asked to join a group with ${_label(inv.admin)}\'s invite link.');
+    _markDirty(dm);
+    _emit();
+    return inv.admin;
+  }
+
+  Future<void> _handleJoinRequest(String sender, AppPayload p) async {
+    final Conversation? c = conversations[Conversation.groupId(p.conv!.gid!)];
+    if (c == null || !c.isGroup || c.group!.removed || !c.group!.admins.contains(username)) return;
+    final GroupState g = c.group!;
+    if (g.members.contains(sender) || g.members.length >= maxGroupMembers) return;
+    if (contacts[sender]?.blocked ?? false) return;
+    final DateTime now = DateTime.now();
+    final Uint8List offered = Uint8List.fromList(utf8.encode(p.inviteSecret!));
+    GroupInvite? used;
+    for (final GroupInvite i in g.invites) {
+      // Constant time: the comparison must not reveal how much of a guess was right.
+      if (i.usableAt(now) && constantTimeEquals(utf8.encode(i.secret), offered)) used = i;
+    }
+    if (used == null) {
+      logger.security('invite_refused', <String, Object?>{'outcome': 'ignored'});
+      return;
+    }
+    used.uses += 1;
+    await addMembers(c.id, <String>[sender]);
+    _systemNotice(c, '${_label(sender)} joined using an invite link.');
+    _markDirty(c);
+    _emit();
   }
 
   Future<void> leaveGroup(String convId) async {

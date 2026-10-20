@@ -46,6 +46,26 @@ function parseCorsOrigins(value) {
   return new Set(list.map((o) => String(o).trim()).filter((o) => o && o !== '*'));
 }
 
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+/**
+ * The client address used for rate limiting.
+ *
+ * By default this is the TCP peer. With `trustLoopbackProxy`, a request that
+ * arrives FROM LOOPBACK (a reverse proxy on this machine, e.g. the HTTPS demo
+ * server) may name the real client in X-Forwarded-For; the proxy overwrites
+ * that header, so only its value — the last entry — is used. A request from
+ * any other address can never choose its own rate-limit bucket.
+ */
+function clientIp(req, trustLoopbackProxy) {
+  const peer = req.socket.remoteAddress || 'unknown';
+  if (!trustLoopbackProxy || !LOOPBACK.has(peer)) return peer;
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd !== 'string' || fwd.length === 0 || fwd.length > 200) return peer;
+  const last = fwd.split(',').pop().trim();
+  return /^[0-9a-fA-F:.]{2,45}$/.test(last) ? last : peer;
+}
+
 function createServer(options = {}) {
   const db = options.db || openDatabase(options.dbPath || ':memory:');
   const limiter = options.limiter || new RateLimiter();
@@ -133,7 +153,7 @@ function createServer(options = {}) {
   const server = http.createServer(async (req, res) => {
     const started = Date.now();
     const url = new URL(req.url, 'http://relay.invalid');
-    const ip = req.socket.remoteAddress || 'unknown';
+    const ip = clientIp(req, options.trustLoopbackProxy === true);
     const cors = corsHeaders(req);
     const baseHeaders = { ...SECURITY_HEADERS, ...cors };
 
@@ -225,7 +245,7 @@ function createServer(options = {}) {
   return server;
 }
 
-module.exports = { createServer, parseCorsOrigins, HttpError, SECURITY_HEADERS };
+module.exports = { createServer, parseCorsOrigins, clientIp, HttpError, SECURITY_HEADERS };
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 8443);
@@ -233,7 +253,9 @@ if (require.main === module) {
   const dbPath = process.env.DB_PATH || './data/helo.db';
   const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
   const maxAttachmentBytes = Number(process.env.MAX_ATTACHMENT_BYTES) || undefined;
-  const server = createServer({ dbPath, corsOrigins: [...corsOrigins], maxAttachmentBytes });
+  const trustLoopbackProxy = process.env.TRUST_PROXY_LOOPBACK === '1';
+  const server = createServer({ dbPath, corsOrigins: [...corsOrigins], maxAttachmentBytes,
+    trustLoopbackProxy });
   server.listen(port, host, () => {
     log.info('relay_started', { status: port });
     process.stdout.write(

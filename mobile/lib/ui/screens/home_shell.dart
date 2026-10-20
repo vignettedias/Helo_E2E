@@ -141,13 +141,14 @@ class _HomeShellState extends State<HomeShell> {
               autofocus: true,
               autocorrect: false,
               decoration: const InputDecoration(
-                  prefixText: '@', hintText: 'username', prefixIcon: Icon(Icons.person_search_rounded)),
+                  hintText: 'username or group invite link', prefixIcon: Icon(Icons.person_search_rounded)),
               onSubmitted: (String v) => Navigator.pop(ctx, v),
             ),
             const SizedBox(height: 10),
             Text(
               'Exact usernames only — there is no searchable directory. They do not need to be '
-              'online: their published keys are enough to start an encrypted session.',
+              'online: their published keys are enough to start an encrypted session. '
+              'Paste a group invite link here to ask to join that group.',
               style: TextStyle(color: HeloPalette.of(ctx).textFaint, fontSize: 12),
             ),
           ]),
@@ -161,7 +162,12 @@ class _HomeShellState extends State<HomeShell> {
     ctl.dispose();
     if (user == null || user.trim().isEmpty) return;
     try {
-      final Conversation c = await _m.openDirect(user);
+      if (user.trim().startsWith(invitePrefix)) {
+        final String admin = await _m.requestJoinByInvite(user);
+        _toast('Request sent to ${_m.labelOf(admin)}. The group appears when their app accepts it.');
+        return;
+      }
+      final Conversation c = await _m.openDirect(user.trim().replaceFirst(RegExp('^@'), ''));
       _open(c.id);
     } on MessengerException catch (e) {
       _toast(e.message);

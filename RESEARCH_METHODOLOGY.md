@@ -100,7 +100,7 @@ lands in a real database first.
 ## Results
 
 Current per-test results are produced by `python scripts/verify.py`, written to `reports/verification.json`
-(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (388/388):
+(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (391/391):
 
 | Suite | Count | Status |
 |---|---|---|
@@ -109,9 +109,9 @@ Current per-test results are produced by `python scripts/verify.py`, written to 
 | Property-based (Hypothesis) | 18 | pass |
 | Integration / vector conformance | 10 | pass |
 | Vectors reproduce byte-exactly | 1 | pass |
-| Relay backend (v1 + v2 API) | 44 | pass |
+| Relay backend (v1 + v2 API, proxy trust) | 45 | pass |
 | Cross-stack end-to-end (PQXDH, DB inspection) | 29 checks | pass |
-| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode) | 91 | pass |
+| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode, invites) | 93 | pass |
 
 Measured experiments (padding overhead and leakage, hybrid vs classical handshake cost, relay metadata
 inventory) are in `research/RESULTS.md`, with methods in `research/EXPERIMENTS.md`. Earlier timing figures in

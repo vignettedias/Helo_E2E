@@ -5,7 +5,7 @@ Kept current so work can resume from here after any interruption.
 
 ## Current phase
 
-**All planned phases are done: 0–10.** Verified by `python scripts/verify.py`: 388/388 tests, 10/10 suites PASS.
+**All planned phases are done: 0–10.** Verified by `python scripts/verify.py`: 391/391 tests, 10/10 suites PASS.
 What remains is listed under "Not done / honest gaps".
 
 ## Completed
@@ -57,12 +57,12 @@ Not exercised in the browser: attachments (the browser tool cannot drive the OS 
 |---|---|
 | unit / adversarial / property / integration (pytest) | 144 / 49 / 18 / 10 passed |
 | vectors `--check` | PASS |
-| relay | 44 passed |
+| relay | 45 passed |
 | integration_e2e | 29/29 |
 | ruff | clean |
 | flutter analyze | clean |
-| flutter test | 91 passed |
-| **total** | **388/388, 10/10 suites PASS** |
+| flutter test | 93 passed |
+| **total** | **391/391, 10/10 suites PASS** |
 
 Mutation checks (evidence the tests are not vacuous):
 - AsyncLock disabled → the "concurrent sends" test fails;
@@ -104,12 +104,31 @@ Platform permissions were added: Android `CAMERA` and `RECORD_AUDIO`; iOS camera
 3. Alice opens chat Details → Compare and screenshots the QR code. Bob opens Compare → "Scan their code" →
    "Choose an image", picks the screenshot, and gets "Verified". With a webcam, try the live scan too.
 
+## Phone access and invite links (added 2026-10-20)
+
+- **`run_demo.py --lan`** serves the app over HTTPS on the Wi-Fi, with a self-signed certificate for every
+  IPv4 address of the PC (`backend/data/demo-tls/`).
+  - It forwards the relay API on the same origin. The relay stays on 127.0.0.1.
+  - `TRUST_PROXY_LOOPBACK=1` keeps rate limits per client: tested in `relay_v2.test.js`.
+  - The client now uses its own origin as the relay URL on HTTPS pages (`lib/app.dart`). On port 443 that
+    is the same as before.
+  - Verified by `scripts/lan_smoke.py` against the real Wi-Fi address: 8/8 checks.
+  - **Not verified:** a real phone. The built-in browser cannot click through a self-signed certificate
+    warning, so it could not stand in for one.
+- **Group invite links:**
+  - Built in `Messenger.createInviteLink` / `requestJoinByInvite` / `_handleJoinRequest`, plus the
+    group details "Invite link" dialog (QR, copy, revoke) and New chat accepting a link.
+  - Tests: join works, a guessed secret is refused (mutation-checked), revoked links are refused, the
+    secret never enters the group snapshot, strict parsing.
+- **Still not done:**
+  - history sync between one user's own devices (needs protocol "sync messages");
+  - real message-length data for E1, which does not exist here and will not be invented.
+
 ## Not done / honest gaps
 
 - Android and iOS builds have never been compiled; there is no Android SDK or macOS here.
 - There is no post-quantum ratchet. PQ covers establishment only, and the instantiation has not been formally analysed.
 - No sealed sender, cover traffic or push notifications.
-- No invite links.
 - QR scanning, voice recording and audio/video playback are implemented and tested in code, but have not
   been checked by hand with a real camera, microphone or player (see "Voice, video, QR" below).
 - A user's own devices do not sync history with each other.
