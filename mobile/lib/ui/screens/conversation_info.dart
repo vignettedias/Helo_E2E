@@ -87,7 +87,7 @@ class _ConversationInfoState extends State<ConversationInfo> {
     } on MessengerException catch (e) {
       _toast(e.message);
     } on RelayException catch (e) {
-      _toast('Relay error (${e.code}).');
+      _toast(e.describe);
     }
   }
 

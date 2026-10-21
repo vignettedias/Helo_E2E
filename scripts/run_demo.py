@@ -106,7 +106,16 @@ RELAY_PREFIXES = frozenset({
     "auth", "devices", "prekeys", "users", "presence", "messages", "delivery",
     "attachments", "me", "reports", "health",
 })
-_FORWARD_REQUEST_HEADERS = ("authorization", "content-type", "accept", "last-event-id")
+# Every request header the client sends to the relay API, and nothing else
+# (no cookies, no hop-by-hop headers). X-Helo-Recipients carries the device ids
+# allowed to download an attachment: dropping it made every media upload fail
+# with 400 validation_failed (see tests/integration/test_demo_proxy.py).
+FORWARD_REQUEST_HEADERS = ("authorization", "content-type", "accept", "last-event-id",
+                           "x-helo-recipients")
+# The proxy reads a request body whole before forwarding it, so it enforces a
+# cap of its own: the relay's attachment limit (25 MiB) plus room for headers
+# of a JSON request. Larger bodies are refused here with 413, unread.
+MAX_PROXIED_BODY = 26 * 1024 * 1024
 _HOP_BY_HOP = frozenset({"connection", "keep-alive", "transfer-encoding", "te", "trailer",
                          "upgrade", "proxy-authenticate", "proxy-authorization"})
 
@@ -121,13 +130,30 @@ class ProxyingHandler(StaticHandler):
 
     relay_port: ClassVar[int] = 8443
 
+    def _json_error(self, status: int, code: str) -> None:
+        """An error in the relay's own format, so the client handles it the same way."""
+        body = json.dumps({"error": code}).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def _is_relay(self) -> bool:
         return self.path.split("?", 1)[0].strip("/").split("/", 1)[0] in RELAY_PREFIXES
 
     def _proxy(self) -> None:
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self.send_error(400, "bad Content-Length")
+            return
+        if length < 0 or length > MAX_PROXIED_BODY:
+            self.close_connection = True
+            self._json_error(413, "payload_too_large")
+            return
         body = self.rfile.read(length) if length else None
-        headers = {k: v for k, v in self.headers.items() if k.lower() in _FORWARD_REQUEST_HEADERS}
+        headers = {k: v for k, v in self.headers.items() if k.lower() in FORWARD_REQUEST_HEADERS}
         headers["X-Forwarded-For"] = self.client_address[0]
         conn = http.client.HTTPConnection("127.0.0.1", self.relay_port, timeout=90)
         try:
@@ -249,6 +275,24 @@ def all_ipv4_addresses() -> list[str]:
     return found
 
 
+# Strings that only appear in main.dart.js when a plugin's WEB implementation
+# was compiled in (i.e. registered). A build made with a stale
+# .dart_tool/flutter_build/*/web_plugin_registrant.dart lacks them, and the app
+# then falls back to native method channels that do not exist in a browser.
+WEB_PLUGIN_MARKERS = {
+    "file picker (photos, videos, files)": "__file_picker_web-file-input",
+    "recorder (voice messages)": "record.worklet.js",
+}
+
+
+def missing_web_plugins(build: Path) -> list[str]:
+    try:
+        js = (build / "main.dart.js").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return [name for name, marker in WEB_PLUGIN_MARKERS.items() if marker not in js]
+
+
 def lan_address() -> str | None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -306,6 +350,13 @@ def main() -> int:
         build_web()
     if not (WEB_BUILD / "index.html").exists():
         sys.exit("No web build found. Run with --build, or: cd mobile && flutter build web")
+    missing = missing_web_plugins(WEB_BUILD)
+    if missing:
+        print(f"{YELLOW}{BOLD}This web build is missing plugin code: {', '.join(missing)}.{RESET}\n"
+              f"{YELLOW}Photos, videos, files and voice messages will fail in the browser. The build used a\n"
+              f"stale plugin registration; rebuild from clean:\n"
+              f"    cd mobile && flutter clean && flutter pub get && flutter build web --release{RESET}\n",
+              flush=True)
     node = shutil.which("node")
     if not node:
         sys.exit("node not found on PATH (Node 22.5+ is required for node:sqlite).")

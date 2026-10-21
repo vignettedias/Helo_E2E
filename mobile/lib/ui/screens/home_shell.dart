@@ -172,7 +172,7 @@ class _HomeShellState extends State<HomeShell> {
     } on MessengerException catch (e) {
       _toast(e.message);
     } on RelayException catch (e) {
-      _toast(e.isRateLimited ? 'Too many lookups — wait a moment.' : 'Relay error (${e.code}).');
+      _toast(e.isRateLimited ? 'Too many lookups — wait a moment.' : e.describe);
     } on Object {
       _toast('Could not reach the relay.');
     }
@@ -216,7 +216,7 @@ class _HomeShellState extends State<HomeShell> {
     } on MessengerException catch (e) {
       _toast(e.message);
     } on RelayException catch (e) {
-      _toast(e.statusCode == 404 ? 'One of those users does not exist.' : 'Relay error (${e.code}).');
+      _toast(e.statusCode == 404 ? 'One of those users does not exist.' : e.describe);
     }
   }
 

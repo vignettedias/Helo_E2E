@@ -16,10 +16,26 @@ import '../crypto/errors.dart';
 import '../crypto/prekeys.dart';
 
 class RelayException implements Exception {
-  const RelayException(this.statusCode, this.code, [this.retryAfter]);
+  const RelayException(this.statusCode, this.code, [this.retryAfter, this.field, this.detail]);
   final int statusCode;
   final String code;
   final int? retryAfter;
+
+  /// For `validation_failed`: which request field the relay rejected, and its
+  /// (fixed, non-secret) explanation — e.g. `x-helo-recipients` / "must list
+  /// 1-256 device ids". Never contains tokens, keys or message content: the
+  /// relay has none of those in its validation messages.
+  final String? field;
+  final String? detail;
+
+  /// A short, user-presentable description that keeps the relay's reason.
+  String get describe {
+    if (code == 'validation_failed') {
+      final String what = field == null ? '' : ' ($field)';
+      return 'The relay rejected the request$what${detail == null ? '' : ': $detail'}.';
+    }
+    return 'Relay error ($code${statusCode > 0 ? ', HTTP $statusCode' : ''}).';
+  }
 
   bool get isAuthFailure => statusCode == 401;
   bool get isRateLimited => statusCode == 429;
@@ -30,7 +46,9 @@ class RelayException implements Exception {
       statusCode >= 400 && statusCode < 500 && statusCode != 401 && statusCode != 429;
 
   @override
-  String toString() => 'RelayException($statusCode, $code)';
+  String toString() =>
+      'RelayException($statusCode, $code${field == null ? '' : ', field=$field'}'
+      '${detail == null ? '' : ', $detail'})';
 }
 
 class QueuedMessage {
@@ -142,10 +160,15 @@ class RelayClient {
       // Non-JSON error body (e.g. from a proxy): keep the status code only.
     }
     final Object? retry = decoded['retry_after'];
+    final Object? field = decoded['field'];
+    final Object? message = decoded['message'];
     throw RelayException(
       response.statusCode,
       decoded['error'] as String? ?? 'http_${response.statusCode}',
       retry is int ? retry : null,
+      // Bounded: these are shown to the user and written to diagnostics.
+      field is String && field.length <= 64 ? field : null,
+      message is String && message.length <= 200 ? message : null,
     );
   }
 

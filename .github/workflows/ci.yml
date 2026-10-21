@@ -95,7 +95,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: pip install cryptography
+      - run: pip install cryptography pytest hypothesis
+
+      - name: HTTPS demo proxy in front of the real relay (media uploads)
+        # The path phones and Termux use. Skipped in the crypto job (no Node).
+        run: python -m pytest tests/integration/test_demo_proxy.py -q
 
       - name: Real client through real relay, with database inspection
         # Starts the actual relay process, drives it with the reference client,
@@ -270,3 +274,17 @@ jobs:
         # it catches web-only breakage such as a dart:io import in lib/.
         working-directory: mobile
         run: flutter build web --release
+
+      - name: Web build contains every web plugin (file picker, recorder)
+        # A stale plugin registrant once produced a build in which photos,
+        # videos, files and voice messages all failed in the browser.
+        run: |
+          grep -q "__file_picker_web-file-input" mobile/build/web/main.dart.js
+          grep -q "record.worklet.js" mobile/build/web/main.dart.js
+
+      - name: Publish the web build (download it for Termux / phone demos)
+        uses: actions/upload-artifact@v4
+        with:
+          name: helo-web
+          path: mobile/build/web/
+          retention-days: 14

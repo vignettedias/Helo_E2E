@@ -118,4 +118,7 @@ rest unchanged.
 A fifth run followed after HTTPS LAN mode (relay proxy trust, +1 relay test) and group invite links
 (+2 Dart tests). That run passed **391/391**: relay 45, Dart 93.
 
+A sixth run followed after the fix for media uploads failing behind the HTTPS demo proxy (methodology
+defect 14). That run passed **405/405**: integration 23 (13 new proxy tests), Dart 94.
+
 The per-test detail for the latest run is in `reports/verification.json` and `reports/dashboard.html`.

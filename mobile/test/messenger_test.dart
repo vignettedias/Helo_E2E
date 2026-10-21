@@ -447,6 +447,24 @@ void main() {
     expect(blob.sublist(0, 64), isNot(equals(file.sublist(0, 64))));
   });
 
+  test('a relay validation error keeps its field and reason all the way to the user', () async {
+    final (Messenger alice, _) = await relay.user('alice');
+    // No recipients: the relay must refuse, and say exactly why.
+    try {
+      await alice.relay.uploadAttachment(Uint8List.fromList(<int>[1, 2, 3]), <String>[]);
+      fail('an upload without recipients must be refused');
+    } on RelayException catch (e) {
+      expect(e.statusCode, 400);
+      expect(e.code, 'validation_failed');
+      expect(e.field, 'x-helo-recipients');
+      expect(e.detail, contains('device ids'));
+      expect(e.describe, contains('x-helo-recipients'),
+          reason: 'the UI shows the rejected field, not a bare "validation relay error"');
+      expect(e.describe, isNot(contains(alice.relay.deviceToken!)),
+          reason: 'diagnostics never include the bearer token');
+    }
+  });
+
   test('an attachment sent without a caption is delivered (regression: it was silently dropped)',
       () async {
     final (Messenger alice, _) = await relay.user('alice');

@@ -126,7 +126,7 @@ class _ChatViewState extends State<ChatView> {
     } on MessengerException catch (e) {
       _toast(e.message);
     } on RelayException catch (e) {
-      _toast(e.isRateLimited ? 'Slow down — the relay is rate limiting.' : 'Relay error (${e.code}).');
+      _toast(e.isRateLimited ? 'Slow down — the relay is rate limiting.' : e.describe);
     } on Object {
       _toast('Something went wrong. Please try again.');
     }

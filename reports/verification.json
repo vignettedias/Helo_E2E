@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-20T21:01:09+05:30",
+  "generated_at": "2026-10-21T11:31:29+05:30",
   "environment": "Windows 11 · Python 3.14.6 · cryptography 50.0.0 (OpenSSL 4.0.1 9 Jun 2026) · Node v24.16.0 · Flutter 3.47.0",
   "totals": {
     "PASS": 10
   },
-  "tests_total": 391,
-  "tests_passed": 391,
+  "tests_total": 405,
+  "tests_passed": 405,
   "suites": [
     {
       "key": "unit",
@@ -16,7 +16,7 @@
       "status": "PASS",
       "passed": 144,
       "total": 144,
-      "duration_s": 3.6,
+      "duration_s": 1.9,
       "tests": [
         {
           "name": "tests.unit.test_padding_attachment::test_pad_round_trips[none-]",
@@ -604,7 +604,7 @@
       "status": "PASS",
       "passed": 49,
       "total": 49,
-      "duration_s": 1.5,
+      "duration_s": 1.6,
       "tests": [
         {
           "name": "tests.adversarial.test_adversarial::test_bitflip_in_ciphertext_fails_authentication",
@@ -812,7 +812,7 @@
       "status": "PASS",
       "passed": 18,
       "total": 18,
-      "duration_s": 4.7,
+      "duration_s": 4.8,
       "tests": [
         {
           "name": "tests.property.test_padding_attachment_properties::test_padding_round_trips_for_any_payload",
@@ -894,10 +894,62 @@
       "description": "Multi-party flows and committed-vector conformance.",
       "command": "python -m pytest tests/integration -q",
       "status": "PASS",
-      "passed": 10,
-      "total": 10,
-      "duration_s": 1.4,
+      "passed": 23,
+      "total": 23,
+      "duration_s": 5.0,
       "tests": [
+        {
+          "name": "tests.integration.test_demo_proxy::test_encrypted_media_upload_through_the_proxy_reaches_the_recipient[photo.jpg (small image)]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_encrypted_media_upload_through_the_proxy_reaches_the_recipient[clip.mp4 (video, 6 MB)]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_encrypted_media_upload_through_the_proxy_reaches_the_recipient[voice.wav (audio)]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_a_device_not_listed_cannot_download",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_validation_still_applies_and_its_reason_reaches_the_client[None-application/octet-stream-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-expected0]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_validation_still_applies_and_its_reason_reaches_the_client[-application/octet-stream-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-expected1]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_validation_still_applies_and_its_reason_reaches_the_client[bob device!-application/octet-stream-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-expected2]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_validation_still_applies_and_its_reason_reaches_the_client[bob-device-application/octet-stream--expected3]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_validation_still_applies_and_its_reason_reaches_the_client[bob-device-application/json-{}-expected4]",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_oversized_upload_is_refused",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_text_messages_still_flow_through_the_proxy",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_proxy_forwards_exactly_the_headers_the_relay_api_uses",
+          "status": "PASS"
+        },
+        {
+          "name": "tests.integration.test_demo_proxy::test_proxy_refuses_a_huge_declared_body_without_reading_it",
+          "status": "PASS"
+        },
         {
           "name": "tests.integration.test_vectors_and_conversation::test_vector_hkdf",
           "status": "PASS"
@@ -965,7 +1017,7 @@
       "status": "PASS",
       "passed": 45,
       "total": 45,
-      "duration_s": 7.5,
+      "duration_s": 7.8,
       "tests": [
         {
           "name": "test::registration and login issue usable tokens",
@@ -1317,9 +1369,9 @@
       "description": "Dart crypto vs. the Python vectors, protocol v2 conformance, Messenger end to end and chat-screen widget tests against the REAL relay process.",
       "command": "cd mobile && flutter test",
       "status": "PASS",
-      "passed": 93,
-      "total": 93,
-      "duration_s": 102.1,
+      "passed": 94,
+      "total": 94,
+      "duration_s": 99.5,
       "tests": [
         {
           "name": "PQXDH conformance (against the reference and OpenSSL) info string matches the reference",
@@ -1418,15 +1470,15 @@
           "status": "PASS"
         },
         {
+          "name": "two users exchange messages over a hybrid PQXDH session",
+          "status": "PASS"
+        },
+        {
           "name": "primitive conformance AES-256-GCM decrypts the reference ciphertext",
           "status": "PASS"
         },
         {
           "name": "primitive conformance AES-256-GCM produces the reference ciphertext",
-          "status": "PASS"
-        },
-        {
-          "name": "two users exchange messages over a hybrid PQXDH session",
           "status": "PASS"
         },
         {
@@ -1602,11 +1654,11 @@
           "status": "PASS"
         },
         {
-          "name": "typing indicators propagate, and are not sent when disabled",
+          "name": "a received voice note shows as a voice player, not a file",
           "status": "PASS"
         },
         {
-          "name": "a received voice note shows as a voice player, not a file",
+          "name": "typing indicators propagate, and are not sent when disabled",
           "status": "PASS"
         },
         {
@@ -1631,6 +1683,10 @@
         },
         {
           "name": "attachments are encrypted on the device and only recipients can fetch them",
+          "status": "PASS"
+        },
+        {
+          "name": "a relay validation error keeps its field and reason all the way to the user",
           "status": "PASS"
         },
         {

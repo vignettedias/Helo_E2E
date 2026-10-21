@@ -510,6 +510,15 @@ test('an allowlisted origin gets a preflight and CORS headers; others do not', a
   assert.strictEqual(
     preflight.headers.get('access-control-allow-origin'), 'http://localhost:5000');
   assert.match(preflight.headers.get('access-control-allow-headers'), /Authorization/);
+  // A browser client uploads attachments with X-Helo-Recipients; without it
+  // here, every web media upload would be blocked by the preflight.
+  const upload = await c.call('OPTIONS', '/attachments', {
+    headers: { Origin: 'http://localhost:5000', 'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type,x-helo-recipients' },
+  });
+  assert.strictEqual(upload.status, 204);
+  assert.match(upload.headers.get('access-control-allow-headers'), /X-Helo-Recipients/i);
+  assert.match(upload.headers.get('access-control-allow-methods'), /POST/);
   // Security headers still apply to preflight responses.
   assert.ok(preflight.headers.get('x-content-type-options'));
 

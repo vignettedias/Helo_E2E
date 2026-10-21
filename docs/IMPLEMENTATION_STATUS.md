@@ -5,7 +5,7 @@ Kept current so work can resume from here after any interruption.
 
 ## Current phase
 
-**All planned phases are done: 0–10.** Verified by `python scripts/verify.py`: 391/391 tests, 10/10 suites PASS.
+**All planned phases are done: 0–10.** Verified by `python scripts/verify.py`: 405/405 tests, 10/10 suites PASS.
 What remains is listed under "Not done / honest gaps".
 
 ## Completed
@@ -55,14 +55,14 @@ Not exercised in the browser: attachments (the browser tool cannot drive the OS 
 
 | Suite | Result |
 |---|---|
-| unit / adversarial / property / integration (pytest) | 144 / 49 / 18 / 10 passed |
+| unit / adversarial / property / integration (pytest) | 144 / 49 / 18 / 23 passed |
 | vectors `--check` | PASS |
 | relay | 45 passed |
 | integration_e2e | 29/29 |
 | ruff | clean |
 | flutter analyze | clean |
-| flutter test | 93 passed |
-| **total** | **391/391, 10/10 suites PASS** |
+| flutter test | 94 passed |
+| **total** | **405/405, 10/10 suites PASS** |
 
 Mutation checks (evidence the tests are not vacuous):
 - AsyncLock disabled → the "concurrent sends" test fails;
@@ -123,6 +123,42 @@ Platform permissions were added: Android `CAMERA` and `RECORD_AUDIO`; iOS camera
 - **Still not done:**
   - history sync between one user's own devices (needs protocol "sync messages");
   - real message-length data for E1, which does not exist here and will not be invented.
+
+## Fix: media uploads failed in the phone/Termux demo (2026-10-21)
+
+- **Root cause:** the `--lan` HTTPS proxy in `scripts/run_demo.py` forwarded only the `authorization`,
+  `content-type`, `accept` and `last-event-id` request headers.
+  - It dropped `X-Helo-Recipients`, so the relay answered every `POST /attachments` with
+    `400 {"error":"validation_failed","field":"x-helo-recipients"}`.
+  - Text needs no such header, so it kept working.
+  - The plain localhost web version calls the relay directly and was never affected. This was checked in a
+    real browser: CORS preflight, upload 201, byte-identical download.
+- **Fix:** forward `x-helo-recipients`; the proxy also caps request bodies at 26 MiB itself (413).
+- **Diagnostics:** `RelayException` keeps the relay's `field` and `message`, and the UI shows them. Tokens,
+  keys and content are never included.
+- **Tests:**
+  - `tests/integration/test_demo_proxy.py` (13), against the real relay and the real proxy: image-, video-
+    and audio-sized encrypted uploads, recipient download, digest check, decryption, database holds only
+    ciphertext, unlisted device refused, missing/invalid/empty recipients, empty body, wrong content type,
+    oversize at both relay and proxy, text still flows, exact header allowlist.
+  - Relay CORS preflight test for `X-Helo-Recipients`.
+  - Dart test: a structured validation error reaches the user.
+- **Result:** `verify.py` 405/405 (integration 23, Dart 94).
+
+## Fix: media did nothing in the locally built web app (2026-10-21)
+
+- **Root cause:** a stale web plugin registrant from Oct 15 registered only secure storage. The file picker,
+  recorder, camera and video player web code was absent from `main.dart.js`, so the browser console showed
+  `MissingPluginException … filepicker` and no upload was ever attempted.
+- **Fix:** `flutter clean && flutter build web`.
+- **Verified in the browser** on the rebuilt app (a test file supplied to the real file input):
+  - photo sent and shown (`POST /attachments 201`);
+  - WAV sent and played to the end;
+  - WebM video sent and played in the player;
+  - the mic button reaches the browser's permission request. The browser pane blocks the microphone, so the
+    app showed "Microphone permission was not granted"; a real browser will prompt.
+- **Guards:** `run_demo.py` warns at start if the build lacks this code (`tests/unit/test_demo_build_check.py`),
+  and a CI step fails such a build.
 
 ## Not done / honest gaps
 

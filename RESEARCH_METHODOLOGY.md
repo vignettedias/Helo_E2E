@@ -100,18 +100,18 @@ lands in a real database first.
 ## Results
 
 Current per-test results are produced by `python scripts/verify.py`, written to `reports/verification.json`
-(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (391/391):
+(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (405/405):
 
 | Suite | Count | Status |
 |---|---|---|
 | Python unit (protocol, PQXDH, padding, attachments, QR verdict) | 144 | pass |
 | Adversarial (incl. PQ downgrade / KEM tampering) | 49 | pass |
 | Property-based (Hypothesis) | 18 | pass |
-| Integration / vector conformance | 10 | pass |
+| Integration / vector conformance / demo proxy | 23 | pass |
 | Vectors reproduce byte-exactly | 1 | pass |
 | Relay backend (v1 + v2 API, proxy trust) | 45 | pass |
 | Cross-stack end-to-end (PQXDH, DB inspection) | 29 checks | pass |
-| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode, invites) | 93 | pass |
+| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode, invites) | 94 | pass |
 
 Measured experiments (padding overhead and leakage, hybrid vs classical handshake cost, relay metadata
 inventory) are in `research/RESULTS.md`, with methods in `research/EXPERIMENTS.md`. Earlier timing figures in
@@ -172,6 +172,23 @@ Recorded because a methodology's value is measured by what it catches:
     attachment test used a caption, so nothing caught it until a voice-message test sent none. Fixed in
     the decoder (older senders already put `""` on the wire), with a regression test that fails when
     the fix is reverted.
+
+14. **Every media upload failed behind the HTTPS demo proxy** (`run_demo.py --lan`, also used on Android
+    via Termux): the proxy forwarded an allowlist of request headers that omitted `X-Helo-Recipients`, so the
+    relay received uploads with no recipient list and correctly answered `400 validation_failed`. Text
+    messages need no such header, so only photos, videos and voice notes broke. Every existing test talked to
+    the relay directly, bypassing the proxy. Fixed by forwarding that header (named explicitly); the proxy also
+    gained its own body-size cap. `tests/integration/test_demo_proxy.py` drives the real relay through the
+    real proxy and failed 7 ways before the fix. The client also dropped the relay's `field`/`message`, so
+    users saw only "Relay error (validation_failed)"; it now keeps and shows them.
+
+15. **Every photo, video, file and voice message failed in the locally built web app** — `flutter build web`
+    reused a stale `.dart_tool/flutter_build/*/web_plugin_registrant.dart` (from before the media plugins
+    were added) that registered only secure storage, so the file picker and recorder fell back to native
+    method channels that do not exist in a browser (`MissingPluginException`) and nothing was ever
+    uploaded. Found by driving the real web build in a browser; `flutter test` cannot see it because tests
+    run on the VM, not the web build. Fixed by a clean rebuild; `run_demo.py` now warns about such builds
+    and CI fails if a web build lacks the file-picker or recorder code.
 
 Defect 2 is the most instructive: a correctness bug *masked by a security
 feature*. Only a test that drove the whole stack and checked ordering directly

@@ -56,6 +56,13 @@ The app's **Settings → Verification dashboard** shows the same report when the
   - relay and account setup in `setUp`;
   - pumping past HttpClient's 15-second idle-connection timer at the end.
 
+## The HTTPS demo proxy
+
+`tests/integration/test_demo_proxy.py` starts the real relay behind `run_demo.py`'s `--lan` proxy (the path
+used on phones and in Termux). It sends encrypted media of image, video and audio sizes through it: upload,
+recipient download, digest, decryption, ciphertext-only storage, and every validation rejection. Skipped if
+Node is missing.
+
 ## Evidence that the tests are not vacuous (mutation checks)
 
 | Mutation | Test that caught it |

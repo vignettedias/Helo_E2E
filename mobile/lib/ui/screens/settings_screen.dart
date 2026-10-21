@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'invalid_credentials' => 'That password is not correct.',
         'weak_password' => 'Use at least 12 characters.',
         'rate_limited' => 'Too many attempts — wait a few minutes.',
-        _ => 'Relay error (${e.code}).',
+        _ => e.describe,
       });
     } on Object {
       _toast('Could not reach the relay.');
