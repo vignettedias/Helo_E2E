@@ -28,6 +28,13 @@ jobs:
         working-directory: mobile
         run: flutter build web --release
 
+      - name: Check the media plugins are in the build
+        # Without these, photos, videos, files and voice messages fail in the
+        # browser (a stale plugin registrant once produced such a build).
+        run: |
+          grep -q "__file_picker_web-file-input" mobile/build/web/main.dart.js
+          grep -q "record.worklet.js" mobile/build/web/main.dart.js
+
       - name: Upload web build
         uses: actions/upload-artifact@v4
         with:
