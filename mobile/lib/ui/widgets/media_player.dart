@@ -117,7 +117,7 @@ class _AudioAttachmentPlayerState extends State<AudioAttachmentPlayer> {
       padding: const EdgeInsets.fromLTRB(4, 6, 10, 6),
       decoration: BoxDecoration(
         color: p.background.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: p.border),
       ),
       child: Row(children: <Widget>[

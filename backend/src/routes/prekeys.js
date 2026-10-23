@@ -151,6 +151,10 @@ module.exports = function prekeyRoutes(app) {
         ).get(deviceId);
       }
 
+      // DEMO ONLY (routes/demo.js): pretend this device published no ML-KEM
+      // key, to show that the sender refuses rather than downgrades.
+      if (app.demo.enabled && app.demo.mode === 'strip_pq') pq = null;
+
       const remaining = countAvailable(deviceId);
       const owner = db.prepare('SELECT username FROM accounts WHERE account_id = ?')
         .get(device.account_id);

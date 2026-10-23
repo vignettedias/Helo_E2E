@@ -2,9 +2,11 @@
 /// at rest by LocalStore; none of it is ever sent to the relay in the clear.
 library;
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../crypto/encoding.dart';
+import '../crypto/envelope.dart';
 import '../protocol/payload.dart';
 
 /// What each status MEANS — they are not interchangeable:
@@ -30,6 +32,8 @@ class ChatMessage {
     this.reply,
     this.attachments = const <AttachmentRef>[],
     this.forwarded = false,
+    this.viewOnce = false,
+    this.burned = false,
     this.edited = false,
     this.deleted = false,
     this.system = false,
@@ -55,6 +59,12 @@ class ChatMessage {
   final ReplyRef? reply;
   List<AttachmentRef> attachments;
   final bool forwarded;
+
+  /// Sent as view-once: shown once, then erased on this device.
+  final bool viewOnce;
+
+  /// A view-once message that has been read and erased.
+  bool burned;
   bool edited;
   bool deleted;
 
@@ -69,6 +79,9 @@ class ChatMessage {
   final Map<String, String> reactions;
   String? failureReason;
 
+  /// What the relay actually stored for this message (Crypto X-Ray).
+  WireInfo? wire;
+
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id,
         'conv': convId,
@@ -80,6 +93,8 @@ class ChatMessage {
         if (attachments.isNotEmpty)
           'att': attachments.map((AttachmentRef a) => a.toJson()).toList(),
         if (forwarded) 'fwd': true,
+        if (viewOnce) 'once': true,
+        if (burned) 'burned': true,
         if (edited) 'edited': true,
         if (deleted) 'deleted': true,
         if (system) 'system': true,
@@ -89,6 +104,7 @@ class ChatMessage {
         if (readBy.isNotEmpty) 'read': readBy.toList(),
         if (reactions.isNotEmpty) 'react': reactions,
         if (failureReason != null) 'fail': failureReason,
+        if (wire != null) 'wire': wire!.toJson(),
       };
 
   static ChatMessage fromJson(Map<String, dynamic> m) => ChatMessage(
@@ -103,6 +119,8 @@ class ChatMessage {
             .map(AttachmentRef.fromJson)
             .toList(),
         forwarded: m['fwd'] == true,
+        viewOnce: m['once'] == true,
+        burned: m['burned'] == true,
         edited: m['edited'] == true,
         deleted: m['deleted'] == true,
         system: m['system'] == true,
@@ -117,7 +135,7 @@ class ChatMessage {
         reactions: ((m['react'] as Map<String, dynamic>?) ?? <String, dynamic>{})
             .map((String k, dynamic v) => MapEntry<String, String>(k, v as String)),
         failureReason: m['fail'] as String?,
-      );
+      )..wire = WireInfo.fromJson(m['wire']);
 }
 
 /// Local view of a group. Changes are accepted only under the rules in
@@ -314,7 +332,7 @@ class AppSettings {
   /// hybrid PQXDH handshake, and contacts whose devices publish no PQ prekey
   /// cannot be messaged until this is turned on.
   bool allowClassical = false;
-  String theme = 'system'; // system | light | dark
+  String theme = 'dark'; // system | light | dark (Cyberdeck defaults to the dark terminal)
   bool notifications = true;
   bool notificationPreviews = true;
   int defaultDisappearingSeconds = 0;
@@ -339,7 +357,7 @@ class AppSettings {
     ..showOnline = m['show_online'] as bool? ?? true
     ..showLastSeen = m['show_last_seen'] as bool? ?? true
     ..allowClassical = m['allow_classical'] as bool? ?? false
-    ..theme = m['theme'] as String? ?? 'system'
+    ..theme = m['theme'] as String? ?? 'dark'
     ..notifications = m['notifications'] as bool? ?? true
     ..notificationPreviews = m['previews'] as bool? ?? true
     ..defaultDisappearingSeconds = m['default_timer'] as int? ?? 0
@@ -389,3 +407,123 @@ class ParsedInvite {
     return ParsedInvite(parts[0], parts[1], parts[2]);
   }
 }
+
+/// What the relay saw of one message: taken from the real envelope, never
+/// reconstructed. Everything here is already visible to the relay, so keeping
+/// it locally reveals nothing new (no key, no plaintext).
+class WireInfo {
+  const WireInfo({
+    required this.envelopeBytes,
+    required this.ciphertextBytes,
+    required this.ciphertextHead,
+    required this.ratchetN,
+    required this.ratchetPn,
+    required this.dhHead,
+    required this.handshake,
+    required this.devices,
+  });
+
+  /// Size of the JSON envelope the relay stored (bytes).
+  final int envelopeBytes;
+
+  /// AEAD ciphertext length = padded plaintext + 16-byte tag.
+  final int ciphertextBytes;
+
+  /// First bytes of the ciphertext, hex (what a database reader would see).
+  final String ciphertextHead;
+
+  /// Ratchet counters from the authenticated (unencrypted) header.
+  final int ratchetN;
+  final int ratchetPn;
+
+  /// First bytes of the sender's current ratchet public key, hex.
+  final String dhHead;
+
+  /// 'PQXDH' / 'X3DH' when this envelope opened a session, else null.
+  final String? handshake;
+
+  /// How many device envelopes were sent (1 per recipient device).
+  final int devices;
+
+  int get paddedBytes => ciphertextBytes - 16;
+
+  static WireInfo fromEnvelope(Map<String, dynamic> json, {int devices = 1}) {
+    final Envelope e = Envelope.fromJson(json);
+    String hex(List<int> b, int n) =>
+        b.take(n).map((int x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return WireInfo(
+      envelopeBytes: utf8.encode(jsonEncode(json)).length,
+      ciphertextBytes: e.ciphertext.length,
+      ciphertextHead: hex(e.ciphertext, 8),
+      ratchetN: e.header.n,
+      ratchetPn: e.header.pn,
+      dhHead: hex(e.header.dhPub, 6),
+      handshake: e.x3dh == null ? null : (e.x3dh!.isHybrid ? 'PQXDH' : 'X3DH'),
+      devices: devices,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'env': envelopeBytes, 'ct': ciphertextBytes, 'head': ciphertextHead, 'n': ratchetN,
+        'pn': ratchetPn, 'dh': dhHead, if (handshake != null) 'hs': handshake, 'dev': devices,
+      };
+
+  static WireInfo? fromJson(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    try {
+      return WireInfo(
+        envelopeBytes: raw['env'] as int, ciphertextBytes: raw['ct'] as int,
+        ciphertextHead: raw['head'] as String, ratchetN: raw['n'] as int, ratchetPn: raw['pn'] as int,
+        dhHead: raw['dh'] as String, handshake: raw['hs'] as String?, devices: raw['dev'] as int? ?? 1,
+      );
+    } on Object {
+      return null;
+    }
+  }
+}
+
+/// A message this device refused to accept, kept so the user (and a live
+/// demo) can see that something was rejected rather than silently lost.
+///
+/// Holds no plaintext and no key material: a rejected message was never
+/// decrypted, and that is the point.
+class SecurityIncident {
+  SecurityIncident({
+    required this.at,
+    required this.sender,
+    required this.errorClass,
+    required this.explanation,
+  });
+
+  final DateTime at;
+
+  /// Username the RELAY asserted for the sender (may be a lie — that is
+  /// precisely one of the things being rejected here).
+  final String sender;
+  final String errorClass;
+  final String explanation;
+}
+
+/// Plain-language reason for a rejection, by error type.
+String describeRejection(String errorClass) => switch (errorClass) {
+      'AuthenticationError' =>
+        'the ciphertext did not match its authentication tag — altered in transit, '
+            'or encrypted to a different key. Nothing was decrypted.',
+      'ReplayError' =>
+        'this exact message was already delivered once. Its message key was destroyed '
+            'after first use, so a second copy cannot be opened.',
+      'DowngradeRejectedError' =>
+        'the sender offered a classical-only handshake where the post-quantum hybrid is '
+            'required. Refused rather than downgraded.',
+      'PostQuantumUnavailableError' =>
+        'no valid post-quantum prekey was offered for this device.',
+      'SignatureVerificationError' =>
+        'a key in the handshake was not signed by the identity that claims it.',
+      'IdentityChangedError' =>
+        'the identity key for this device is not the one pinned here.',
+      'InvalidEncodingError' => 'the message was malformed and was refused at parse time.',
+      'TooManySkippedMessagesError' =>
+        'the message claimed an implausible position in the ratchet; bounded work refused it.',
+      'UnknownSessionError' => 'no session exists for this sender and no valid handshake was attached.',
+      _ => 'the message failed a protocol check and was refused.',
+    };

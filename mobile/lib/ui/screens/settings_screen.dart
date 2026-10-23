@@ -8,6 +8,7 @@ import '../../domain/messenger.dart';
 import '../../domain/models.dart';
 import '../format.dart';
 import '../image_tools.dart';
+import '../../research_numbers.dart';
 import '../theme.dart';
 import '../widgets/avatar.dart';
 import 'security_overview_screen.dart';
@@ -296,6 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+              _PaddingMeter(policy: s.padding),
               _DevicesList(messenger: _m),
               _EventsList(messenger: _m),
             ]),
@@ -567,3 +569,43 @@ class _EventsListState extends State<_EventsList> {
   }
 }
 
+/// Measured cost/benefit of the selected padding policy.
+///
+/// Numbers are copied from research/RESULTS.md, experiment E1 (synthetic
+/// short-chat lengths, log-normal median 48 B), produced by
+/// scripts/experiments/padding_overhead.py. They describe that distribution,
+/// not any particular user's messages.
+class _PaddingMeter extends StatelessWidget {
+  const _PaddingMeter({required this.policy});
+
+  final String policy;
+
+  @override
+  Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
+    final (double bits, double bytes)? m = paddingE1[policy];
+    if (m == null) return const SizedBox.shrink();
+    final double leak = (m.$1 / paddingE1['none']!.$1).clamp(0.0, 1.0);
+    final Color c = leak > 0.5 ? p.danger : (leak > 0.1 ? p.warning : p.success);
+    final TextStyle mono = TextStyle(fontFamily: heloMono, fontSize: 11, color: p.textSecondary);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Row(children: <Widget>[
+          Text('length leak ', style: mono),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                  value: leak, minHeight: 6, color: c, backgroundColor: p.surfaceRaised),
+            ),
+          ),
+          Text(' ${m.$1.toStringAsFixed(2)} bits/msg', style: mono.copyWith(color: c)),
+        ]),
+        const SizedBox(height: 3),
+        Text('cost +${m.$2.toStringAsFixed(0)} B/msg  ·  measured: research/RESULTS.md (E1)',
+            style: mono.copyWith(color: p.textFaint, fontSize: 10.5)),
+      ]),
+    );
+  }
+}

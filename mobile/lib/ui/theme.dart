@@ -1,5 +1,5 @@
-/// Visual system: deep navy (dark) and clean light themes with one teal
-/// accent.
+/// Visual system: "Cyberdeck" -- a phosphor-green terminal on near-black
+/// (dark) and a printed-terminal-paper variant (light), monospace throughout.
 ///
 /// One rule governs the security states: they are never conveyed by colour
 /// alone. Every verification or downgrade state carries an icon and a word
@@ -47,42 +47,44 @@ class HeloPalette extends ThemeExtension<HeloPalette> {
   final Color danger;
   final Color info;
 
+  /// Phosphor terminal: green signal, cyan info, magenta alarm.
   static const HeloPalette dark = HeloPalette(
-    backdrop: Color(0xFF070B16),
-    background: Color(0xFF0B1020),
-    surface: Color(0xFF111A2B),
-    surfaceRaised: Color(0xFF18233A),
-    border: Color(0xFF233049),
-    accent: Color(0xFF2DD4BF),
-    onAccent: Color(0xFF042F2B),
-    textPrimary: Color(0xFFE6EDF7),
-    textSecondary: Color(0xFF9AA8BD),
-    textFaint: Color(0xFF66748A),
-    bubbleOut: Color(0xFF0E3B3A),
-    bubbleIn: Color(0xFF18233A),
-    success: Color(0xFF34D399),
-    warning: Color(0xFFFBBF24),
-    danger: Color(0xFFF87171),
-    info: Color(0xFF60A5FA),
+    backdrop: Color(0xFF020403),
+    background: Color(0xFF050807),
+    surface: Color(0xFF0A100D),
+    surfaceRaised: Color(0xFF101A15),
+    border: Color(0xFF1C3328),
+    accent: Color(0xFF39FF88),
+    onAccent: Color(0xFF001A0B),
+    textPrimary: Color(0xFFCFFFE2),
+    textSecondary: Color(0xFF7FB89A),
+    textFaint: Color(0xFF4E7A63),
+    bubbleOut: Color(0xFF0B2A1A),
+    bubbleIn: Color(0xFF0E1822),
+    success: Color(0xFF39FF88),
+    warning: Color(0xFFFFC94D),
+    danger: Color(0xFFFF2E88),
+    info: Color(0xFF22D3EE),
   );
 
+  /// Daylight: green-bar printer paper.
   static const HeloPalette light = HeloPalette(
-    backdrop: Color(0xFFE6EBF3),
-    background: Color(0xFFF4F7FB),
-    surface: Color(0xFFFFFFFF),
-    surfaceRaised: Color(0xFFEEF2F8),
-    border: Color(0xFFDCE3EE),
-    accent: Color(0xFF0F8F80),
+    backdrop: Color(0xFFDCE7DF),
+    background: Color(0xFFEFF5F0),
+    surface: Color(0xFFFAFDF9),
+    surfaceRaised: Color(0xFFE3EEE6),
+    border: Color(0xFFB9CEBF),
+    accent: Color(0xFF00803A),
     onAccent: Color(0xFFFFFFFF),
-    textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF475569),
-    textFaint: Color(0xFF8592A6),
-    bubbleOut: Color(0xFFD6F2EC),
+    textPrimary: Color(0xFF0B1F14),
+    textSecondary: Color(0xFF355A44),
+    textFaint: Color(0xFF6F8C7A),
+    bubbleOut: Color(0xFFD3EBDB),
     bubbleIn: Color(0xFFFFFFFF),
-    success: Color(0xFF047857),
-    warning: Color(0xFFB45309),
-    danger: Color(0xFFDC2626),
-    info: Color(0xFF2563EB),
+    success: Color(0xFF00803A),
+    warning: Color(0xFFA15C00),
+    danger: Color(0xFFC2185B),
+    info: Color(0xFF0E7490),
   );
 
   static HeloPalette of(BuildContext context) =>
@@ -95,6 +97,9 @@ class HeloPalette extends ThemeExtension<HeloPalette> {
   HeloPalette lerp(ThemeExtension<HeloPalette>? other, double t) =>
       t < 0.5 || other is! HeloPalette ? this : other;
 }
+
+/// The bundled terminal typeface (assets/fonts, SIL OFL 1.1).
+const String heloMono = 'JetBrainsMono';
 
 ThemeData buildTheme(Brightness brightness) {
   final HeloPalette p = brightness == Brightness.dark ? HeloPalette.dark : HeloPalette.light;
@@ -111,11 +116,12 @@ ThemeData buildTheme(Brightness brightness) {
     outlineVariant: p.border,
   );
   final OutlineInputBorder field = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(4),
     borderSide: BorderSide(color: p.border),
   );
 
   return ThemeData(
+    fontFamily: heloMono,
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
@@ -138,14 +144,14 @@ ThemeData buildTheme(Brightness brightness) {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(4),
         side: BorderSide(color: p.border),
       ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: p.surface,
@@ -155,7 +161,7 @@ ThemeData buildTheme(Brightness brightness) {
     popupMenuTheme: PopupMenuThemeData(
       color: p.surfaceRaised,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -174,8 +180,8 @@ ThemeData buildTheme(Brightness brightness) {
         backgroundColor: p.accent,
         foregroundColor: p.onAccent,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        textStyle: const TextStyle(fontFamily: heloMono, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -183,13 +189,13 @@ ThemeData buildTheme(Brightness brightness) {
         foregroundColor: p.textPrimary,
         side: BorderSide(color: p.border),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     ),
     listTileTheme: ListTileThemeData(
       iconColor: p.textSecondary,
       textColor: p.textPrimary,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((Set<WidgetState> s) =>
@@ -202,13 +208,13 @@ ThemeData buildTheme(Brightness brightness) {
       selectedColor: p.accent.withValues(alpha: 0.18),
       side: BorderSide(color: p.border),
       labelStyle: TextStyle(color: p.textPrimary, fontSize: 12.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: p.surfaceRaised,
       contentTextStyle: TextStyle(color: p.textPrimary),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
     ),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(color: p.surfaceRaised, borderRadius: BorderRadius.circular(8)),

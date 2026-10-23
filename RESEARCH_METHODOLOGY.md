@@ -100,18 +100,18 @@ lands in a real database first.
 ## Results
 
 Current per-test results are produced by `python scripts/verify.py`, written to `reports/verification.json`
-(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (405/405):
+(also rendered as `reports/dashboard.html` and in the app's Verification dashboard). The final run of 2026-10-16 (436/436):
 
 | Suite | Count | Status |
 |---|---|---|
-| Python unit (protocol, PQXDH, padding, attachments, QR verdict) | 144 | pass |
+| Python unit (protocol, PQXDH, padding, attachments, QR verdict) | 147 | pass |
 | Adversarial (incl. PQ downgrade / KEM tampering) | 49 | pass |
 | Property-based (Hypothesis) | 18 | pass |
 | Integration / vector conformance / demo proxy | 23 | pass |
 | Vectors reproduce byte-exactly | 1 | pass |
-| Relay backend (v1 + v2 API, proxy trust) | 45 | pass |
+| Relay backend (v1 + v2 API, proxy trust, demo attacks) | 51 | pass |
 | Cross-stack end-to-end (PQXDH, DB inspection) | 29 checks | pass |
-| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode, invites) | 94 | pass |
+| Dart (vectors, protocol v2, Messenger vs real relay, chat widgets, QR decode, invites, lab) | 116 | pass |
 
 Measured experiments (padding overhead and leakage, hybrid vs classical handshake cost, relay metadata
 inventory) are in `research/RESULTS.md`, with methods in `research/EXPERIMENTS.md`. Earlier timing figures in
@@ -189,6 +189,12 @@ Recorded because a methodology's value is measured by what it catches:
     uploaded. Found by driving the real web build in a browser; `flutter test` cannot see it because tests
     run on the VM, not the web build. Fixed by a clean rebuild; `run_demo.py` now warns about such builds
     and CI fails if a web build lacks the file-picker or recorder code.
+
+16. **A substituted key was not noticed while the directory cache was warm** — found while building the
+    attack simulator: the relay can start serving a different identity for a pinned device and sends keep
+    using the cached entry for the cache lifetime, so the conflict is only raised on the next real
+    lookup. Correct caching, but worth exposing: `Messenger.refreshDevices` now forces a fetch, the
+    verification UI offers it, and the end-to-end attack test asserts the conflict is then raised.
 
 Defect 2 is the most instructive: a correctness bug *masked by a security
 feature*. Only a test that drove the whole stack and checked ordering directly

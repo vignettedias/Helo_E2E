@@ -175,7 +175,33 @@ Options:
   the new relay has never seen; the app then says so and offers **Settings → Account → Reset this device**.
 - `--lan` makes the demo reachable from a phone on the same Wi-Fi (next section).
 
-### On your phone (`--lan`)
+### As an installed Android app (APK)
+
+This machine needs **no Android SDK**: GitHub's runners have one.
+
+1. Push the repo, then on GitHub choose **Actions → Build Helo Android APK → Run workflow**.
+   Leave the relay box empty to be asked for the address on first run, or type it now
+   (for example `http://192.168.1.20:8443`).
+2. Download the **`helo-android-apk`** artifact on the phone and open the `.apk` to install it.
+   Android will ask you to allow installing from that source; the build is signed with Flutter's
+   debug key, which is fine for sideloading and **not** suitable for distribution.
+3. On the computer, start the demo with the relay exposed to the network:
+
+```bash
+python scripts/run_demo.py --fresh --relay-lan
+```
+
+   It prints a line like `Phone app (APK) relay address: http://192.168.1.20:8443`.
+4. Open the app on the phone, tap **Relay: … (change)** on the first screen, and enter that address.
+5. Register a user on the phone and another on the computer (`http://localhost:5001`), then chat.
+
+**What this costs in security, stated plainly:** the demo relay speaks plain HTTP, so the APK
+permits cleartext (`android/app/src/main/res/xml/network_security_config.xml`). Message content is
+still end-to-end encrypted, but on that hop anyone on the same network can see who talks to whom and
+can capture this device's bearer token. The app says so on the first screen whenever the relay is
+`http://` and not loopback. A real deployment uses an `https://` relay and none of this applies.
+
+### On your phone, in the browser (`--lan`)
 
 ```bash
 python scripts/run_demo.py --fresh --lan

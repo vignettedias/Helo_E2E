@@ -222,6 +222,7 @@ class AppPayload {
     this.reply,
     this.attachments = const <AttachmentRef>[],
     this.forwarded = false,
+    this.viewOnce = false,
     this.expireSeconds,
     this.target,
     this.emoji,
@@ -246,6 +247,11 @@ class AppPayload {
   final ReplyRef? reply;
   final List<AttachmentRef> attachments;
   final bool forwarded;
+
+  /// Burn after reading: the receiver shows it once, then erases it locally.
+  /// Honest limits: this is a request the receiving CLIENT honours. It cannot
+  /// stop a screenshot, a photograph, or a modified client.
+  final bool viewOnce;
   final int? expireSeconds;
 
   // react / edit / del
@@ -284,6 +290,7 @@ class AppPayload {
         if (attachments.isNotEmpty)
           'att': attachments.map((AttachmentRef a) => a.toJson()).toList(),
         if (forwarded) 'fwd': true,
+        if (viewOnce) 'once': true,
         if (expireSeconds != null) 'exp': expireSeconds,
         if (target != null) 'target': target,
         if (emoji != null) 'emoji': emoji,
@@ -337,12 +344,15 @@ class AppPayload {
             m['body'] == null ? '' : _str(m['body'], 'body', maxBodyChars, allowEmpty: true);
         if (body.isEmpty && atts.isEmpty) throw const InvalidEncodingError('empty message');
         final Object? exp = m['exp'];
+        final Object? once = m['once'];
+        if (once != null && once != true) throw const InvalidEncodingError('once is invalid');
         return AppPayload(
           id: id, timestampMs: ts, kind: kind, conv: conv,
           body: body,
           reply: m['reply'] == null ? null : ReplyRef.fromJson(m['reply']),
           attachments: atts,
           forwarded: m['fwd'] == true,
+          viewOnce: once == true,
           expireSeconds: exp is int && exp > 0 ? exp : null,
         );
       case PayloadKind.react:

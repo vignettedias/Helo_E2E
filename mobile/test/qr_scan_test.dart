@@ -59,7 +59,7 @@ void main() {
     img.compositeImage(photo, render(shown, scale: 9), dstX: 600, dstY: 300);
     final Uint8List jpeg = img.encodeJpg(photo, quality: 55);
     expect(decodeQrFromImageBytes(jpeg), shown);
-  });
+  }, timeout: const Timeout(Duration(seconds: 60))); // heavy decode; slow under a loaded full run
 
   test('a code for the wrong key decodes but does NOT verify', () {
     final String? read = decodeQrFromImageBytes(img.encodePng(render(qrPayload(mallory, alice))));

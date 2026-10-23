@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' show ImageFilter;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,8 @@ class MessageBubble extends StatelessWidget {
     required this.onActions,
     this.showAuthor = false,
     this.highlight = false,
+    this.xray = false,
+    this.blur = false,
     super.key,
   });
 
@@ -29,6 +32,12 @@ class MessageBubble extends StatelessWidget {
   final void Function(ChatMessage) onActions;
   final bool showAuthor;
   final bool highlight;
+
+  /// Crypto X-Ray: also show what the relay stored for this message.
+  final bool xray;
+
+  /// Privacy blur: contents stay blurred until hovered.
+  final bool blur;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +51,7 @@ class MessageBubble extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: p.surfaceRaised,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Text(m.body,
               textAlign: TextAlign.center,
@@ -97,6 +106,15 @@ class MessageBubble extends StatelessWidget {
               Text('This message was deleted',
                   style: TextStyle(color: p.textFaint, fontStyle: FontStyle.italic)),
             ])
+          else if (m.burned)
+            Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+              Icon(Icons.local_fire_department_outlined, size: 14, color: p.textFaint),
+              const SizedBox(width: 5),
+              Text('Viewed once — erased here',
+                  style: TextStyle(color: p.textFaint, fontStyle: FontStyle.italic)),
+            ])
+          else if (m.viewOnce && !out)
+            _ViewOnceLock(messenger: messenger, message: m)
           else ...<Widget>[
             for (final AttachmentRef a in m.attachments)
               Padding(
@@ -111,6 +129,10 @@ class MessageBubble extends StatelessWidget {
             children: <Widget>[
               if (m.expiresAt != null) ...<Widget>[
                 Icon(Icons.timer_outlined, size: 11, color: p.textFaint),
+                const SizedBox(width: 3),
+              ],
+              if (m.viewOnce) ...<Widget>[
+                Icon(Icons.visibility_off_outlined, size: 11, color: p.textFaint),
                 const SizedBox(width: 3),
               ],
               if (m.edited && !m.deleted)
@@ -143,8 +165,9 @@ class MessageBubble extends StatelessWidget {
             onTap: () => onActions(m),
             onLongPress: () => onActions(m),
             onSecondaryTap: () => onActions(m),
-            child: bubble,
+            child: blur ? HoverReveal(child: bubble) : bubble,
           ),
+          if (xray) XrayPanel(message: m),
           if (m.status == MessageStatus.failed && out)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -162,7 +185,7 @@ class MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: p.surfaceRaised,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: p.border),
                 ),
                 child: Text(
@@ -276,7 +299,7 @@ class _AttachmentViewState extends State<AttachmentView> {
               height: 160,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: p.surfaceRaised, borderRadius: BorderRadius.circular(10)),
+                  color: p.surfaceRaised, borderRadius: BorderRadius.circular(4)),
               child: const SizedBox(
                   width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
             );
@@ -307,7 +330,7 @@ class _AttachmentViewState extends State<AttachmentView> {
               ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 300, maxHeight: 320),
                 child: Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true),
@@ -336,7 +359,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.background.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: p.border),
       ),
       child: Row(children: <Widget>[
@@ -364,6 +387,124 @@ class _AttachmentViewState extends State<AttachmentView> {
                         : _save,
               ),
       ]),
+    );
+  }
+}
+
+/// The relay's view of one message, from the real envelope (see WireInfo).
+class XrayPanel extends StatelessWidget {
+  const XrayPanel({required this.message, super.key});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
+    final WireInfo? w = message.wire;
+    final TextStyle mono = TextStyle(fontFamily: heloMono, fontSize: 10.5, color: p.info, height: 1.35);
+    final List<String> lines = w == null
+        ? <String>['relay view not recorded (message predates X-Ray)']
+        : <String>[
+            '> relay stored ${w.envelopeBytes} B envelope'
+                '${w.devices > 1 ? ' x${w.devices} devices' : ''}',
+            '> aes-256-gcm ${w.ciphertextBytes} B = ${w.paddedBytes} padded + 16 tag',
+            '> ct ${w.ciphertextHead}... (unreadable without the message key)',
+            '> ratchet n=${w.ratchetN} pn=${w.ratchetPn} dh ${w.dhHead}...',
+            if (w.handshake != null) '> opened session: ${w.handshake} handshake',
+          ];
+    return Container(
+      margin: const EdgeInsets.only(top: 3),
+      padding: const EdgeInsets.fromLTRB(8, 5, 8, 5),
+      constraints: const BoxConstraints(maxWidth: 420),
+      decoration: BoxDecoration(
+        color: p.info.withValues(alpha: 0.06),
+        border: Border.all(color: p.info.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[for (final String l in lines) Text(l, style: mono)],
+      ),
+    );
+  }
+}
+
+/// Blurs its child until the pointer hovers it (privacy blur mode).
+class HoverReveal extends StatefulWidget {
+  const HoverReveal({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  State<HoverReveal> createState() => _HoverRevealState();
+}
+
+class _HoverRevealState extends State<HoverReveal> {
+  bool _shown = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _shown = true),
+        onExit: (_) => setState(() => _shown = false),
+        child: Semantics(
+          label: _shown ? null : 'Message hidden by privacy blur; hover to reveal',
+          child: ImageFiltered(
+            enabled: !_shown,
+            imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+            child: widget.child,
+          ),
+        ),
+      );
+}
+
+/// An unread view-once message: reveal it, then it is erased here.
+class _ViewOnceLock extends StatelessWidget {
+  const _ViewOnceLock({required this.messenger, required this.message});
+
+  final Messenger messenger;
+  final ChatMessage message;
+
+  Future<void> _reveal(BuildContext context) async {
+    final HeloPalette p = HeloPalette.of(context);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext ctx) => AlertDialog(
+        icon: Icon(Icons.visibility_off_outlined, color: p.accent),
+        title: const Text('Shown once'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+          if (message.body.isNotEmpty)
+            SelectableText(message.body, style: const TextStyle(fontSize: 15)),
+          for (final AttachmentRef a in message.attachments)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: AttachmentView(messenger: messenger, ref: a),
+            ),
+          const SizedBox(height: 12),
+          Text('Closing this erases it from this device. The sender cannot stop a '
+              'screenshot, and this app does not pretend otherwise.',
+              style: TextStyle(color: p.textFaint, fontSize: 11.5)),
+        ]),
+        actions: <Widget>[
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+        ],
+      ),
+    );
+    await messenger.burnViewOnce(message.convId, message.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
+    return OutlinedButton.icon(
+      onPressed: () => _reveal(context),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: p.accent,
+        side: BorderSide(color: p.accent.withValues(alpha: 0.6)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      icon: const Icon(Icons.visibility_outlined, size: 16),
+      label: const Text('View once', style: TextStyle(fontSize: 13)),
     );
   }
 }

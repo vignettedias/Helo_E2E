@@ -13,6 +13,7 @@ import '../theme.dart';
 import '../widgets/avatar.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/voice_recorder.dart';
+import '../deck_state.dart';
 import '../widgets/security_badges.dart';
 
 const List<String> quickReactions = <String>['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -47,6 +48,7 @@ class _ChatViewState extends State<ChatView> {
   Timer? _ticker;
   Timer? _typingIdle;
   bool _recording = false;
+  bool _viewOnce = false;
   Presence? _presence;
   ChatMessage? _replyTo;
   ChatMessage? _editing;
@@ -61,6 +63,8 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
+    xrayMode.addListener(_deckChanged);
+    privacyBlur.addListener(_deckChanged);
     _sub = _m.changes.listen((_) {
       if (mounted) setState(() {});
     });
@@ -106,8 +110,14 @@ class _ChatViewState extends State<ChatView> {
     if (mounted) setState(() => _presence = p);
   }
 
+  void _deckChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    xrayMode.removeListener(_deckChanged);
+    privacyBlur.removeListener(_deckChanged);
     _detach(widget.convId);
     _sub?.cancel();
     _ticker?.cancel();
@@ -157,7 +167,8 @@ class _ChatViewState extends State<ChatView> {
       if (editing != null) {
         await _m.edit(widget.convId, editing.id, text);
       } else {
-        await _m.sendText(widget.convId, text, replyToId: reply?.id);
+        await _m.sendText(widget.convId, text, replyToId: reply?.id, viewOnce: _viewOnce);
+        if (mounted && _viewOnce) setState(() => _viewOnce = false);
       }
     });
     if (mounted) {
@@ -244,7 +255,7 @@ class _ChatViewState extends State<ChatView> {
                   children: <Widget>[
                     for (final String e in quickReactions)
                       InkWell(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(4),
                         onTap: () => Navigator.pop(ctx, 'react:$e'),
                         child: Container(
                           padding: const EdgeInsets.all(8),
@@ -477,7 +488,7 @@ class _ChatViewState extends State<ChatView> {
                   if (widget.onBack != null)
                     IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: widget.onBack),
                   InkWell(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(4),
                     onTap: widget.onOpenInfo,
                     child: Avatar(
                       label: _m.titleOf(c),
@@ -511,6 +522,13 @@ class _ChatViewState extends State<ChatView> {
                     ),
                   ),
                   if (!narrow) ...badges,
+                  IconButton(
+                    tooltip: xrayMode.value ? 'Crypto X-Ray: on' : 'Crypto X-Ray: show what the relay sees',
+                    isSelected: xrayMode.value,
+                    color: xrayMode.value ? p.info : null,
+                    icon: const Icon(Icons.document_scanner_outlined),
+                    onPressed: () => xrayMode.value = !xrayMode.value,
+                  ),
                   IconButton(
                     tooltip: 'Search',
                     icon: const Icon(Icons.search_rounded),
@@ -645,6 +663,8 @@ class _ChatViewState extends State<ChatView> {
         message: m,
         onActions: _actions,
         highlight: _searching && q.isNotEmpty,
+        xray: xrayMode.value,
+        blur: privacyBlur.value,
         showAuthor: c.isGroup && (prev == null || prev.author != m.author || prev.system),
       ));
     }
@@ -664,7 +684,7 @@ class _ChatViewState extends State<ChatView> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: p.surfaceRaised,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Text(dayLabel(t), style: TextStyle(color: p.textSecondary, fontSize: 11.5)),
         ),
@@ -720,7 +740,7 @@ class _ChatViewState extends State<ChatView> {
               padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
               decoration: BoxDecoration(
                 color: p.surfaceRaised,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(4),
                 border: Border(left: BorderSide(color: p.accent, width: 3)),
               ),
               child: Row(children: <Widget>[
@@ -798,21 +818,36 @@ class _ChatViewState extends State<ChatView> {
                     decoration: InputDecoration(
                       hintText: _editing != null ? 'Edit message' : 'Message',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(4),
                         borderSide: BorderSide(color: p.border),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(4),
                         borderSide: BorderSide(color: p.border),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(4),
                         borderSide: BorderSide(color: p.accent),
                       ),
                     ),
                   ),
                 ),
               ),
+              if (_editing == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: IconButton(
+                    tooltip: _viewOnce
+                        ? 'View once: ON — erased on their device after reading'
+                        : 'Send the next message as view-once',
+                    isSelected: _viewOnce,
+                    color: _viewOnce ? p.accent : p.textSecondary,
+                    icon: Icon(_viewOnce
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_off_outlined),
+                    onPressed: () => setState(() => _viewOnce = !_viewOnce),
+                  ),
+                ),
               if (_editing == null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),

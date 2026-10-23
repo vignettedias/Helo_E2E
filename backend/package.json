@@ -8,7 +8,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/relay.test.js test/relay_v2.test.js"
+    "test": "node --test test/relay.test.js test/relay_v2.test.js test/demo_attacks.test.js"
   },
   "dependencies": {},
   "comment": "Zero runtime dependencies by design: node:http, node:crypto and node:sqlite only. Every dependency would be a supply-chain path into a service that handles ciphertext for every user."

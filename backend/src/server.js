@@ -34,6 +34,7 @@ const ROUTE_MODULES = [
   require('./routes/attachments'),
   require('./routes/social'),
   require('./routes/account'),
+  require('./routes/demo'),
 ];
 
 /**
@@ -70,6 +71,10 @@ function createServer(options = {}) {
   const db = options.db || openDatabase(options.dbPath || ':memory:');
   const limiter = options.limiter || new RateLimiter();
   const app = createContext({ db, limiter });
+  // DEMO ONLY (see routes/demo.js). Disabled unless explicitly switched on,
+  // and the only way to change `mode` is a route that does not exist when it
+  // is disabled.
+  app.demo = { enabled: options.demoAttacks === true, mode: 'none' };
 
   const routes = {
     'GET /health': async () => ({
@@ -254,8 +259,9 @@ if (require.main === module) {
   const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
   const maxAttachmentBytes = Number(process.env.MAX_ATTACHMENT_BYTES) || undefined;
   const trustLoopbackProxy = process.env.TRUST_PROXY_LOOPBACK === '1';
+  const demoAttacks = process.env.DEMO_ATTACKS === '1';
   const server = createServer({ dbPath, corsOrigins: [...corsOrigins], maxAttachmentBytes,
-    trustLoopbackProxy });
+    trustLoopbackProxy, demoAttacks });
   server.listen(port, host, () => {
     log.info('relay_started', { status: port });
     process.stdout.write(
@@ -263,7 +269,11 @@ if (require.main === module) {
       (corsOrigins.size
         ? `CORS allowlist: ${[...corsOrigins].join(', ')}\n`
         : 'CORS disabled (set CORS_ORIGINS to allow a browser client)\n') +
-      'NOTE: terminate TLS in front of this process. It speaks plain HTTP by design.\n'
+      'NOTE: terminate TLS in front of this process. It speaks plain HTTP by design.\n' +
+      (demoAttacks
+        ? '*** DEMO_ATTACKS=1: this relay can be told to corrupt, replay, strip and swap\n'
+          + '*** what it serves. For demonstrations only. NEVER run this in production.\n'
+        : '')
     );
   });
 }

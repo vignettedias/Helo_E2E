@@ -44,15 +44,15 @@ is the exact failure mode this design is meant to avoid.
 | Verification dashboard built from real test runs | ✅ `scripts/verify.py` → `reports/`, also in the app |
 | Research experiments (padding, PQ cost, metadata) | ✅ `research/` — measured, not estimated |
 
-**Verification status (run of 2026-10-16, `python scripts/verify.py`): 405/405 tests, 10/10 suites PASS.**
+**Verification status (run of 2026-10-16, `python scripts/verify.py`): 436/436 tests, 10/10 suites PASS.**
 
 | Component | Executed & verified here? |
 |---|---|
-| Python reference (unit, adversarial, property, integration) | ✅ 144 + 49 + 18 + 23 passing |
+| Python reference (unit, adversarial, property, integration) | ✅ 147 + 49 + 18 + 23 passing |
 | Test vectors | ✅ reproduce byte-exactly |
-| Relay backend | ✅ 45 tests passing |
+| Relay backend | ✅ 51 tests passing |
 | Cross-stack end-to-end (PQXDH + database inspection) | ✅ 29 checks passing |
-| Dart client (vectors, protocol v2, Messenger and chat UI against the real relay) | ✅ 94 tests passing, `flutter analyze` clean |
+| Dart client (vectors, protocol v2, Messenger and chat UI against the real relay) | ✅ 116 tests passing, `flutter analyze` clean |
 | Web client against the real relay | ✅ exercised by hand: two users, groups, reactions, replies, edits, deletes, dark mode, phone width |
 | Android / iOS builds | ⚠️ platform projects generated, not built (no Android SDK or macOS here) |
 
@@ -248,8 +248,8 @@ pip install cryptography pytest hypothesis
 ```bash
 python scripts/verify.py                  # everything below → reports/verification.json + dashboard.html
 python -m pytest -q                       # 221 protocol tests
-cd backend && npm test                    # 45 relay tests, zero deps
-cd mobile  && flutter test                # 94 Dart tests, incl. Messenger + UI against the real relay
+cd backend && npm test                    # 51 relay tests, zero deps
+cd mobile  && flutter test                # 116 Dart tests, incl. Messenger + UI against the real relay
 ```
 
 Details: [docs/TESTING.md](docs/TESTING.md). Experiments: [research/EXPERIMENTS.md](research/EXPERIMENTS.md).
@@ -275,7 +275,7 @@ python3 scripts/run_demo.py --fresh
 ```
 
 Starts the relay and serves the Flutter web client on two ports — open
-`http://localhost:5000` (Alice) and `http://localhost:5001` (Bob). Each port is
+`http://localhost:5000` (User 1) and `http://localhost:5001` (User 2). Each port is
 a separate browser origin with its own key storage, so the two tabs are
 genuinely different devices. Details in [RUNNING.md](RUNNING.md#4-web-demo).
 

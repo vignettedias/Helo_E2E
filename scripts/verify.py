@@ -213,13 +213,13 @@ def suite_relay(node: str | None, tmp: Path) -> Suite:
     s = Suite("relay", "Relay (Node) test suite",
               "Real HTTP server per test: auth, device-bound sending (A1), prekeys incl. PQ, "
               "long-poll, groups fan-out, attachments, blocks, rate limits, migrations.",
-              "cd backend && node --test test/relay.test.js test/relay_v2.test.js")
+              "cd backend && node --test test/relay.test.js test/relay_v2.test.js test/demo_attacks.test.js")
     if node is None:
         s.note = "node not found on PATH"
         return s
     xml = tmp / "relay.xml"
     cmd = [node, "--test", "--test-reporter=junit", f"--test-reporter-destination={xml}",
-           "test/relay.test.js", "test/relay_v2.test.js"]
+           "test/relay.test.js", "test/relay_v2.test.js", "test/demo_attacks.test.js"]
     code, out, s.duration_s = run(cmd, REPO / "backend", timeout=900)
     s.tests = parse_junit(xml)
     finish(s, code, out)

@@ -81,7 +81,7 @@ jobs:
         # Explicit file, not `node --test test/`. Node 22 resolves a bare
         # directory as a module path and fails with MODULE_NOT_FOUND.
         working-directory: backend
-        run: node --test test/relay.test.js test/relay_v2.test.js
+        run: node --test test/relay.test.js test/relay_v2.test.js test/demo_attacks.test.js
 
   cross_stack:
     name: End-to-end across the real stack

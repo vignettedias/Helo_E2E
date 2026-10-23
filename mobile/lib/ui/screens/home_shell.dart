@@ -1,12 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../data/relay_client.dart';
 import '../../domain/messenger.dart';
 import '../../domain/models.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../deck_state.dart';
+import '../widgets/command_palette.dart';
+import 'attack_screen.dart';
+import 'crypto_lab_screen.dart';
+import 'demo_script_screen.dart';
+import 'network_screen.dart';
+import 'verification_dashboard_screen.dart';
+import '../widgets/cyberdeck.dart';
 import '../widgets/avatar.dart';
 import '../widgets/security_badges.dart';
 import 'chat_view.dart';
@@ -121,6 +130,73 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  void _openLab() => Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (BuildContext _) => const CryptoLabScreen()));
+
+  void _openAttacks() => Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (BuildContext _) => AttackScreen(messenger: _m)));
+
+  void _openNetwork() => Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (BuildContext _) => NetworkScreen(messenger: _m)));
+
+  void _openRunSheet() => Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (BuildContext _) => DemoScriptScreen(messenger: _m)));
+
+  /// Ctrl+K: every action and every chat, one keystroke away.
+  Future<void> _palette() async {
+    final List<DeckCommand> cmds = <DeckCommand>[
+      DeckCommand('New chat', Icons.person_add_alt_rounded, _newChat, hint: 'start'),
+      DeckCommand('New group', Icons.group_add_outlined, _newGroup, hint: 'start'),
+      DeckCommand('Crypto lab: run the real handshake and attacks', Icons.science_outlined, _openLab, hint: 'lab'),
+      DeckCommand('Attack simulator: make the relay misbehave', Icons.bug_report_outlined, _openAttacks,
+          hint: 'attack demo relay'),
+      DeckCommand('Network inspector: every relay request', Icons.lan_outlined, _openNetwork,
+          hint: 'traffic bytes http'),
+      DeckCommand('Demo run sheet: what to show, in order', Icons.slideshow_outlined, _openRunSheet,
+          hint: 'demo present script'),
+      DeckCommand('Crypto X-Ray ${xrayMode.value ? 'OFF' : 'ON'}', Icons.document_scanner_outlined,
+          () => xrayMode.value = !xrayMode.value, hint: 'xray relay view'),
+      DeckCommand('Privacy blur ${privacyBlur.value ? 'OFF' : 'ON'}', Icons.blur_on_rounded,
+          () => privacyBlur.value = !privacyBlur.value, hint: 'blur hide'),
+      DeckCommand('Theme: terminal (dark)', Icons.dark_mode_outlined,
+          () => _m.updateSettings((AppSettings x) => x.theme = 'dark'), hint: 'theme'),
+      DeckCommand('Theme: paper (light)', Icons.light_mode_outlined,
+          () => _m.updateSettings((AppSettings x) => x.theme = 'light'), hint: 'theme'),
+      DeckCommand('Settings & privacy', Icons.tune_rounded, _openSettings, hint: 'settings'),
+      DeckCommand('Verification dashboard', Icons.fact_check_outlined, () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => VerificationDashboardScreen(relayBase: _m.relay.baseUrl))),
+          hint: 'tests'),
+      for (final Conversation c in _m.sortedConversations())
+        DeckCommand('@${_m.titleOf(c)}', c.isGroup ? Icons.groups_outlined : Icons.chat_bubble_outline_rounded,
+            () => _open(c.id), hint: c.isGroup ? 'group' : 'chat'),
+      DeckCommand('Panic: wipe this device', Icons.local_fire_department_outlined, _panic,
+          hint: 'reset erase', danger: true),
+    ];
+    await showCommandPalette(context, cmds);
+  }
+
+  /// Destroys this device's keys and history after one confirmation.
+  Future<void> _panic() async {
+    final bool? sure = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Wipe this device now?'),
+        content: const Text('Identity keys, sessions and history on this device are destroyed '
+            'immediately. Messages cannot be recovered. Your contacts will see a new device if '
+            'you sign in again.'),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: HeloPalette.of(ctx).danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Wipe'),
+          ),
+        ],
+      ),
+    );
+    if (sure == true) await _m.resetEverything();
+  }
+
   void _openSettings() => Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (BuildContext _) => SettingsScreen(messenger: _m)));
 
@@ -221,7 +297,15 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): _palette,
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _palette,
+        },
+        child: Focus(autofocus: true, child: _buildShell(context)),
+      );
+
+  Widget _buildShell(BuildContext context) {
     final HeloPalette p = HeloPalette.of(context);
     final double width = MediaQuery.sizeOf(context).width;
     final bool wide = width >= _wideBreakpoint;
@@ -301,18 +385,31 @@ class _Sidebar extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 6, 6),
             child: Row(children: <Widget>[
-              Icon(Icons.lock_rounded, color: p.accent, size: 22),
-              const SizedBox(width: 8),
-              const Text('HELO', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: 2)),
+              const TerminalTitle(),
               const Spacer(),
+              IconButton(
+                tooltip: 'Command palette (Ctrl+K)',
+                icon: const Icon(Icons.keyboard_command_key_rounded),
+                onPressed: state._palette,
+              ),
               IconButton(tooltip: 'New group', icon: const Icon(Icons.group_add_outlined), onPressed: state._newGroup),
               PopupMenuButton<String>(
                 tooltip: 'Menu',
                 onSelected: (String v) {
                   if (v == 'settings') state._openSettings();
+                  if (v == 'lab') state._openLab();
+                  if (v == 'attacks') state._openAttacks();
+                  if (v == 'network') state._openNetwork();
+                  if (v == 'runsheet') state._openRunSheet();
+                  if (v == 'palette') state._palette();
                   if (v == 'archived') state.update(() => state._archived = !state._archived);
                 },
                 itemBuilder: (BuildContext _) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(value: 'palette', child: Text('Command palette  (Ctrl+K)')),
+                  const PopupMenuItem<String>(value: 'lab', child: Text('Crypto lab')),
+                  const PopupMenuItem<String>(value: 'attacks', child: Text('Attack simulator')),
+                  const PopupMenuItem<String>(value: 'network', child: Text('Network inspector')),
+                  const PopupMenuItem<String>(value: 'runsheet', child: Text('Demo run sheet')),
                   const PopupMenuItem<String>(value: 'settings', child: Text('Settings & privacy')),
                   PopupMenuItem<String>(
                       value: 'archived', child: Text(state._archived ? 'Back to chats' : 'Archived chats')),
@@ -428,7 +525,7 @@ class _ConnectionBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: b.$1.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Row(children: <Widget>[
         Icon(b.$2, size: 16, color: b.$1),
@@ -513,7 +610,7 @@ class _ConversationTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: c.muted ? p.textFaint : p.accent,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text('${c.unread}',
                           style: TextStyle(color: p.onAccent, fontSize: 11, fontWeight: FontWeight.w700)),

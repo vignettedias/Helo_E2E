@@ -10,6 +10,7 @@
 const { randomUUID } = require('node:crypto');
 const { HttpError, readJson } = require('../http');
 const { ValidationError, requireString, ID } = require('../validate');
+const { otherAccountIdentity } = require('./demo');
 
 const REPORT_REASONS = new Set(['spam', 'abuse', 'impersonation', 'other']);
 
@@ -39,13 +40,18 @@ module.exports = function socialRoutes(app) {
         `SELECT device_id, identity_json, registered_at FROM devices
          WHERE account_id = ? AND revoked_at IS NULL ORDER BY registered_at`
       ).all(target.account_id);
+      // DEMO ONLY (routes/demo.js): serve someone else's identity key, the
+      // move a relay would make to insert itself into a conversation.
+      const forged = app.demo.enabled && app.demo.mode === 'substitute_identity'
+        ? otherAccountIdentity(db, target.account_id)
+        : null;
       return {
         status: 200,
         body: {
           username: target.username,
           devices: devices.map((d) => ({
             device_id: d.device_id,
-            identity: JSON.parse(d.identity_json),
+            identity: forged || JSON.parse(d.identity_json),
             registered_at: d.registered_at,
           })),
         },

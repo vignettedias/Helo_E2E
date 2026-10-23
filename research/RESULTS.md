@@ -121,4 +121,7 @@ A fifth run followed after HTTPS LAN mode (relay proxy trust, +1 relay test) and
 A sixth run followed after the fix for media uploads failing behind the HTTPS demo proxy (methodology
 defect 14). That run passed **405/405**: integration 23 (13 new proxy tests), Dart 94.
 
+A seventh run followed the attack simulator, the privacy features and the presentation extras:
+**436/436**, with relay 51 (demo-attack switch) and Dart 116.
+
 The per-test detail for the latest run is in `reports/verification.json` and `reports/dashboard.html`.

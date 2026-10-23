@@ -206,4 +206,19 @@ void main() {
     expect(find.textContaining('microphone', findRichText: true), findsOneWidget);
     await finish(tester);
   });
+
+  testWidgets('Crypto X-Ray shows what the relay stored under each message', (WidgetTester tester) async {
+    await tester.pumpWidget(host(bob, 'd:alice'));
+    await settle(tester);
+    expect(find.textContaining('> relay stored'), findsNothing);
+    await tester.tap(find.byIcon(Icons.document_scanner_outlined));
+    await tester.pump();
+    expect(find.textContaining('> relay stored'), findsOneWidget);
+    expect(find.textContaining('aes-256-gcm'), findsOneWidget);
+    expect(find.textContaining('PQXDH handshake'), findsOneWidget, reason: 'the first message opened the session');
+    await tester.tap(find.byIcon(Icons.document_scanner_outlined));
+    await tester.pump();
+    expect(find.textContaining('> relay stored'), findsNothing);
+    await finish(tester);
+  });
 }

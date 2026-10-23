@@ -10,6 +10,8 @@ import '../../data/relay_client.dart';
 import '../../domain/messenger.dart';
 import '../../domain/models.dart';
 import '../../protocol/payload.dart';
+import '../../verification/ratchet_timeline.dart';
+import '../../verification/visual_safety.dart';
 import '../format.dart';
 import '../image_tools.dart';
 import '../theme.dart';
@@ -188,6 +190,7 @@ class _ConversationInfoState extends State<ConversationInfo> {
               ),
             const SizedBox(height: 18),
             _encryptionCard(c, p),
+            _ratchetCard(c, p),
             const SizedBox(height: 14),
             _verificationCard(c, p),
             const SizedBox(height: 14),
@@ -249,6 +252,23 @@ class _ConversationInfoState extends State<ConversationInfo> {
         'steps use classical X25519. It has not been independently audited.',
         style: TextStyle(color: p.textFaint, fontSize: 11.5),
       ),
+    ]);
+  }
+
+  Widget _ratchetCard(Conversation c, HeloPalette p) {
+    final List<RatchetEpoch> epochs = ratchetEpochs(c.messages);
+    if (epochs.isEmpty) return const SizedBox.shrink();
+    final List<RatchetEpoch> shown = epochs.length > 8 ? epochs.sublist(epochs.length - 8) : epochs;
+    final TextStyle mono = TextStyle(fontFamily: heloMono, fontSize: 11.5, color: p.textSecondary);
+    return _card(p, 'Ratchet timeline', icon: Icons.timeline_rounded, <Widget>[
+      Text('${epochs.length} sender-key epoch(s): every arrow change below is a fresh X25519 '
+          'ratchet step, so a key stolen in one epoch does not open the next.',
+          style: TextStyle(color: p.textFaint, fontSize: 11.5)),
+      const SizedBox(height: 6),
+      for (final RatchetEpoch e in shown)
+        Text('${e.outgoing ? '→ you ' : '← them'}  dh ${e.dhHead}…  '
+            '${e.messages} msg  n ${e.firstN}..${e.lastN}',
+            style: mono.copyWith(color: e.outgoing ? p.accent : p.info)),
     ]);
   }
 
@@ -362,9 +382,20 @@ class _ConversationInfoState extends State<ConversationInfo> {
                               fontWeight: FontWeight.w600)),
                   ],
                 ),
+                const SizedBox(height: 12),
+                // Same number on both sides -> same emoji: easy to compare aloud.
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    for (final String e in safetyEmojiStrip(s.safetyNumber))
+                      Text(e, style: const TextStyle(fontSize: 22)),
+                  ],
+                ),
                 const SizedBox(height: 14),
                 Text(
-                  'Both of you should see these exact digits. Compare them in person or on a call — '
+                  'Both of you should see these exact digits and emoji. Compare them in person or on a call — '
                   'never over this app, because whoever could swap keys could swap this number too. '
                   'Or, in person, scan their code: it checks both directions at once.',
                   style: TextStyle(color: p.textSecondary, fontSize: 12),

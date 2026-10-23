@@ -11,6 +11,7 @@ const { randomUUID } = require('node:crypto');
 const log = require('../log');
 const { HttpError, readJson } = require('../http');
 const { ValidationError, validateEnvelope, requireString, ID } = require('../validate');
+const { tamperEnvelope } = require('./demo');
 
 const MESSAGE_FETCH_LIMIT = 100;
 const MAX_BATCH = 100;
@@ -144,18 +145,21 @@ module.exports = function messageRoutes(app) {
         for (const row of rows) mark.run(app.now(), row.message_id);
       }
 
-      return {
-        status: 200,
-        body: {
-          messages: rows.map((r) => ({
-            message_id: r.message_id,
-            sender_device_id: r.sender_device,
-            sender_username: r.username || null,
-            queued_at: r.queued_at,
-            envelope: JSON.parse(r.envelope_json),
-          })),
-        },
-      };
+      let messages = rows.map((r) => ({
+        message_id: r.message_id,
+        sender_device_id: r.sender_device,
+        sender_username: r.username || null,
+        queued_at: r.queued_at,
+        envelope: JSON.parse(r.envelope_json),
+      }));
+      // DEMO ONLY (routes/demo.js): unreachable unless DEMO_ATTACKS=1.
+      if (app.demo.enabled && app.demo.mode === 'tamper') {
+        messages = messages.map((m) => ({ ...m, envelope: tamperEnvelope(m.envelope) }));
+      } else if (app.demo.enabled && app.demo.mode === 'replay') {
+        messages = messages.flatMap((m) => [m, m]);
+      }
+
+      return { status: 200, body: { messages } };
     },
 
     'POST /delivery/ack': async (req) => {

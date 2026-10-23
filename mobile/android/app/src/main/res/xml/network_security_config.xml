@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is permitted so a sideloaded build can reach a demo relay
+  running on a laptop. `scripts/run_demo.py` serves the relay over plain HTTP
+  on purpose: the relay is designed to sit behind a TLS terminator (see
+  docker/), and a self-signed certificate cannot be accepted by an Android
+  HttpClient the way a browser lets a user click through it.
+
+  This is a real reduction in transport security, so the app does not hide it:
+  when the configured relay is http:// and not loopback, the first screen says
+  that anyone on the same network can see the metadata and capture this
+  device's bearer token (lib/data/relay_address.dart, relayTransportIsExposed).
+
+  Message CONTENT is unaffected either way — it is end-to-end encrypted before
+  it reaches the relay. A production deployment must use an https:// relay,
+  and then nothing here applies.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

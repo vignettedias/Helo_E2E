@@ -5,6 +5,7 @@
     python scripts/run_demo.py --build    # run `flutter build web` first
     python scripts/run_demo.py --fresh    # start from an empty relay database
     python scripts/run_demo.py --lan      # HTTPS on this Wi-Fi, so a phone can join
+    python scripts/run_demo.py --attacks  # enable the in-app attack simulator
 
 The web client is served on TWO ports (default 5000 and 5001). Each port is a
 separate browser origin, so each gets its own key storage: open one tab per
@@ -341,6 +342,11 @@ def main() -> int:
                         help="serve over HTTPS on this network so a phone can join (self-signed)")
     parser.add_argument("--build", action="store_true", help="run `flutter build web` first")
     parser.add_argument("--fresh", action="store_true", help="delete the demo relay database first")
+    parser.add_argument("--attacks", action="store_true",
+                        help="DEMO ONLY: let the app tell this relay to misbehave (attack simulator)")
+    parser.add_argument("--relay-lan", action="store_true",
+                        help="expose the relay itself on the network (plain HTTP) so a packaged "
+                             "phone app can reach it; browsers should use --lan instead")
     args = parser.parse_args()
 
     if os.name == "nt":
@@ -363,7 +369,7 @@ def main() -> int:
 
     ports = [int(p) for p in args.ports.split(",") if p.strip()]
     bind = "0.0.0.0" if args.lan else "127.0.0.1"
-    if not port_free("127.0.0.1", args.relay_port):
+    if not port_free("0.0.0.0" if args.relay_lan else "127.0.0.1", args.relay_port):
         sys.exit(f"port {args.relay_port} is already in use (another demo still running?)")
     for port in ports:
         if not port_free(bind, port):
@@ -390,9 +396,11 @@ def main() -> int:
         [node, str(RELAY)],
         # The relay always listens on loopback only; --lan reaches it through
         # the HTTPS proxy below.
-        env={**os.environ, "PORT": str(args.relay_port), "HOST": "127.0.0.1",
+        env={**os.environ, "PORT": str(args.relay_port),
+             "HOST": "0.0.0.0" if args.relay_lan else "127.0.0.1",
              "DB_PATH": str(db), "CORS_ORIGINS": ",".join(origins),
-             "TRUST_PROXY_LOOPBACK": "1" if args.lan else "0"},
+             "TRUST_PROXY_LOOPBACK": "1" if args.lan else "0",
+             "DEMO_ATTACKS": "1" if args.attacks else "0"},
         stdout=log_file, stderr=subprocess.STDOUT,
     )
     if not wait_for_relay(args.relay_port):
@@ -419,12 +427,11 @@ def main() -> int:
         threading.Thread(target=server.serve_forever, daemon=True).start()
         servers.append(server)
 
-    users = ["Alice", "Bob", "Carol", "Dave", "Erin", "Frank"]
     print(f"\n{BOLD}Helo demo running{RESET}")
     print(f"  relay   http://127.0.0.1:{args.relay_port}  {DIM}(log: {log_path}){RESET}")
     scheme = "https" if args.lan else "http"
     for i, port in enumerate(ports):
-        name = users[i] if i < len(users) else f"User {i + 1}"
+        name = f"User {i + 1}"
         print(f"  {name:<7} {GREEN}{scheme}://localhost:{port}{RESET}")
         for ip in lan_ips:
             print(f"  {'':<7} {GREEN}https://{ip}:{port}{RESET}  {DIM}(phone / other devices on the same Wi-Fi){RESET}")
@@ -441,6 +448,15 @@ def main() -> int:
     if args.fresh:
         print(f"{YELLOW}Fresh relay database: clear site data in the browser too, or old tabs will\n"
               f"still hold identities this relay has never seen.{RESET}")
+    if args.relay_lan and lan_ips:
+        print(f"\n  {BOLD}Phone app (APK){RESET} relay address: "
+              f"{GREEN}http://{lan_ips[0]}:{args.relay_port}{RESET}")
+        print(f"{YELLOW}The relay is now reachable on this network over PLAIN HTTP. Message content\n"
+              f"stays end-to-end encrypted, but anyone on this network can see who talks to whom\n"
+              f"and can capture a device sign-in token. Demo networks only.{RESET}")
+    if args.attacks:
+        print(f"{YELLOW}{BOLD}Attack simulator ENABLED.{RESET}{YELLOW} On request from the app this\n"
+              f"relay will corrupt, duplicate, strip or swap what it serves. Demos only.{RESET}")
     print(f"{DIM}Ctrl+C to stop.{RESET}\n", flush=True)
 
     stop = threading.Event()

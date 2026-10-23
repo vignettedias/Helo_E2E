@@ -18,6 +18,8 @@ class SecurityOverviewScreen extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: ListView(padding: const EdgeInsets.all(16), children: const <Widget>[
+            _HarvestNow(),
+            SizedBox(height: 8),
             _Item(_Tone.good, 'Message content, end to end',
                 'Messages, reactions, edits, receipts, typing indicators, profiles and files are '
                 'encrypted on your device. The relay carries ciphertext and never holds a key that '
@@ -76,7 +78,7 @@ class _Item extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: p.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
@@ -88,6 +90,52 @@ class _Item extends StatelessWidget {
             const SizedBox(height: 6),
             Text(body, style: TextStyle(color: p.textSecondary, height: 1.5, fontSize: 13)),
           ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// "Harvest now, decrypt later": why a post-quantum handshake matters before
+/// a quantum computer exists, and exactly how far HELO's protection goes.
+class _HarvestNow extends StatelessWidget {
+  const _HarvestNow();
+
+  @override
+  Widget build(BuildContext context) {
+    final HeloPalette p = HeloPalette.of(context);
+    const TextStyle mono = TextStyle(fontFamily: heloMono, fontSize: 11.5, height: 1.5);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: p.surface,
+        border: Border.all(color: p.accent.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Row(children: <Widget>[
+          Icon(Icons.hourglass_bottom_rounded, size: 18, color: p.accent),
+          const SizedBox(width: 8),
+          Text('Harvest now, decrypt later',
+              style: TextStyle(fontWeight: FontWeight.w700, color: p.accent)),
+        ]),
+        const SizedBox(height: 8),
+        Text(
+          'Traffic recorded today can be stored and decrypted years later, once a large enough '
+          'quantum computer exists. That makes the threat present-tense even though the machine '
+          'is not: anything sent now with classical-only key agreement is on the clock.',
+          style: TextStyle(color: p.textSecondary, fontSize: 12.5, height: 1.45),
+        ),
+        const SizedBox(height: 10),
+        Text('session setup   X25519 + ML-KEM-768   resists it', style: mono.copyWith(color: p.success)),
+        Text('message ratchet X25519 only          does NOT', style: mono.copyWith(color: p.warning)),
+        Text('who/when/sizes  visible to the relay does NOT', style: mono.copyWith(color: p.danger)),
+        const SizedBox(height: 8),
+        Text(
+          'So a recorded HELO conversation does not hand over its session key to a future quantum '
+          'attacker. Individual later ratchet steps are not protected that way, and no amount of '
+          'cryptography hides that the conversation happened.',
+          style: TextStyle(color: p.textFaint, fontSize: 11.5, height: 1.4),
         ),
       ]),
     );

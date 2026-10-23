@@ -198,6 +198,10 @@ abstract final class StorageKeys {
 
   /// This device's relay identifier (e.g. `device-3fa9c1d2e07b`). Not a secret,
   /// but its presence is what marks the app as registered.
+  /// Relay origin chosen on this device (a packaged app cannot guess the
+  /// address of a relay on someone's laptop). Not a secret.
+  static const String relayUrl = 'relay.url';
+
   static const String deviceId = 'device.id';
   static const String username = 'account.username';
 

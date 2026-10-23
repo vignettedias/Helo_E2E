@@ -7,9 +7,11 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../data/relay_address.dart';
 import '../../data/relay_client.dart';
 import '../../domain/messenger.dart';
 import '../../storage/crypto_storage.dart';
+import 'crypto_lab_screen.dart';
 import '../theme.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -17,12 +19,17 @@ class OnboardingScreen extends StatefulWidget {
     required this.storage,
     required this.relay,
     required this.onReady,
+    required this.onRelayChanged,
     super.key,
   });
 
   final CryptoStorage storage;
   final RelayClient relay;
   final void Function(Messenger) onReady;
+
+  /// Point this device at a different relay (a packaged app cannot guess the
+  /// address of a relay running on someone's laptop).
+  final void Function(String) onRelayChanged;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -39,6 +46,59 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _error;
 
   static final RegExp _usernameRule = RegExp(r'^[a-z0-9][a-z0-9._-]{2,31}$');
+
+  /// Ask for a relay address. Offered only before this device is registered:
+  /// sessions and prekeys live on one relay, so moving an existing device
+  /// would strand them.
+  Future<void> _changeRelay() async {
+    final TextEditingController ctl = TextEditingController(text: widget.relay.baseUrl);
+    String? problem;
+    final String? chosen = await showDialog<String>(
+      context: context,
+      builder: (BuildContext ctx) => StatefulBuilder(
+        builder: (BuildContext ctx, StateSetter setLocal) => AlertDialog(
+          title: const Text('Relay address'),
+          content: SizedBox(
+            width: 380,
+            child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+              TextField(
+                controller: ctl,
+                autofocus: true,
+                autocorrect: false,
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  hintText: 'http://192.168.1.20:8443',
+                  errorText: problem,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'The address printed by scripts/run_demo.py on the computer running the relay. '
+                'Scheme, host and port only.',
+                style: TextStyle(color: HeloPalette.of(ctx).textFaint, fontSize: 11.5),
+              ),
+            ]),
+          ),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final String? clean = normaliseRelayUrl(ctl.text);
+                if (clean == null) {
+                  setLocal(() => problem = 'Needs to look like http://host:port');
+                  return;
+                }
+                Navigator.pop(ctx, clean);
+              },
+              child: const Text('Use this relay'),
+            ),
+          ],
+        ),
+      ),
+    );
+    ctl.dispose();
+    if (chosen != null) widget.onRelayChanged(chosen);
+  }
 
   Future<void> _submit() async {
     if (!(_form.currentState?.validate() ?? false)) return;
@@ -197,7 +257,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: p.surface,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: p.border),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
@@ -219,9 +279,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ]),
               ),
-              const SizedBox(height: 10),
-              Text('Relay: ${widget.relay.baseUrl}',
-                  textAlign: TextAlign.center, style: TextStyle(color: p.textFaint, fontSize: 11)),
+              const SizedBox(height: 6),
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (BuildContext _) => const CryptoLabScreen())),
+                icon: const Icon(Icons.science_outlined, size: 18),
+                label: const Text('Try the crypto lab (no account needed)'),
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: _busy ? null : _changeRelay,
+                child: Text('Relay: ${widget.relay.baseUrl}  (change)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: p.textFaint, fontSize: 11)),
+              ),
+              if (relayTransportIsExposed(widget.relay.baseUrl))
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'This relay is plain HTTP over a network. Messages stay end-to-end encrypted, '
+                    'but anyone on this network can see who you message and when — and can capture '
+                    'the sign-in token for this device. Fine for a demo on your own Wi-Fi; not for '
+                    'real use.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: p.warning, fontSize: 11, height: 1.4),
+                  ),
+                ),
             ]),
           ),
         ),

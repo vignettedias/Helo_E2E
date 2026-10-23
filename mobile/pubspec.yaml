@@ -43,6 +43,14 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Cyberdeck UI typeface: JetBrains Mono, SIL Open Font License 1.1
+  # (assets/fonts/OFL.txt). Bundled so no font is fetched at runtime.
+  fonts:
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+        - asset: assets/fonts/JetBrainsMono-Bold.ttf
+          weight: 700
   # The cross-implementation vectors (../tests/vectors/helo_vectors.json) are
   # read from disk by test/vector_conformance_test.dart. They are deliberately
   # NOT bundled as an asset: they contain fixed-seed test private keys, which

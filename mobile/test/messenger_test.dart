@@ -27,6 +27,8 @@ import 'package:helo/domain/messenger.dart';
 import 'package:helo/domain/models.dart';
 import 'package:helo/protocol/payload.dart';
 import 'package:helo/storage/crypto_storage.dart';
+import 'package:helo/verification/ratchet_timeline.dart';
+import 'package:helo/verification/visual_safety.dart';
 
 import 'support/relay_harness.dart';
 
@@ -765,6 +767,82 @@ void main() {
     expect(r.check, QrCheck.match);
     expect(r.device!.deviceId, bob.deviceId);
     expect(alice.isVerified(a2b), isTrue);
+  });
+
+  test('X-Ray records what the relay saw, on both sides, from the real envelope', () async {
+    final (Messenger alice, _) = await relay.user('alice');
+    final (Messenger bob, _) = await relay.user('bob');
+    final ChatMessage first = await alice.sendText((await alice.openDirect('bob')).id, 'hi');
+    final ChatMessage second = await alice.sendText('d:bob', 'again');
+    await bob.sync();
+    expect(first.wire!.handshake, 'PQXDH', reason: 'the first envelope carries the hybrid handshake');
+    // Until Bob answers, every message re-carries the handshake (so any one
+    // of them can open the session); after his reply it is gone.
+    expect(second.wire!.handshake, 'PQXDH');
+    expect(second.wire!.ratchetN, first.wire!.ratchetN + 1);
+    await bob.sendText('d:alice', 'reply');
+    await alice.sync();
+    final ChatMessage third = await alice.sendText('d:bob', 'after the reply');
+    expect(third.wire!.handshake, isNull);
+    expect(first.wire!.paddedBytes % 256, 0, reason: 'default block-256 padding is visible as a bucket');
+    final ChatMessage got = bob.conversations['d:alice']!.messages.firstWhere((ChatMessage m) => m.body == 'again');
+    expect(got.wire!.ciphertextHead, second.wire!.ciphertextHead, reason: 'both sides see the same bytes');
+    expect(ChatMessage.fromJson(got.toJson()).wire!.ciphertextBytes, got.wire!.ciphertextBytes);
+  });
+
+  test('the safety-number emoji strip is the same on both sides and rejects junk', () async {
+    final (Messenger alice, _) = await relay.user('alice');
+    final (Messenger bob, _) = await relay.user('bob');
+    await alice.sendText((await alice.openDirect('bob')).id, 'hi');
+    await bob.sync();
+    final List<String> a = safetyEmojiStrip((await alice.safetyNumbersFor('bob')).single.safetyNumber);
+    final List<String> b = safetyEmojiStrip((await bob.safetyNumbersFor('alice')).single.safetyNumber);
+    expect(a, hasLength(12));
+    expect(a, equals(b));
+    expect(safetyEmojiStrip('123'), isEmpty);
+    expect(safetyEmojiStrip('x' * 60), isEmpty);
+  });
+
+  test('the ratchet timeline shows a fresh sender key after every turn', () async {
+    final (Messenger alice, _) = await relay.user('alice');
+    final (Messenger bob, _) = await relay.user('bob');
+    await alice.sendText((await alice.openDirect('bob')).id, 'one');
+    await alice.sendText('d:bob', 'two');
+    await bob.sync();
+    await bob.sendText('d:alice', 'reply');
+    await alice.sync();
+    await alice.sendText('d:bob', 'three');
+    final List<RatchetEpoch> e = ratchetEpochs(alice.conversations['d:bob']!.messages);
+    expect(e.map((RatchetEpoch x) => x.outgoing), <bool>[true, false, true]);
+    expect(e.first.messages, 2, reason: 'same sender key until the peer answers');
+    expect(e.last.dhHead, isNot(e.first.dhHead), reason: 'a DH ratchet step happened');
+  });
+
+  test('a view-once message is erased on the reading device and stays erased', () async {
+    final (Messenger alice, _) = await relay.user('alice');
+    final (Messenger bob, CryptoStorage bStore) = await relay.user('bob');
+    await alice.sendText((await alice.openDirect('bob')).id, 'the safe code is 4821', viewOnce: true);
+    await bob.sync();
+
+    final ChatMessage got = bob.conversations['d:alice']!.messages.lastWhere((ChatMessage m) => !m.system);
+    expect(got.viewOnce, isTrue);
+    expect(got.burned, isFalse);
+    expect(got.body, 'the safe code is 4821', reason: 'readable until it is actually viewed');
+
+    await bob.burnViewOnce('d:alice', got.id);
+    expect(got.burned, isTrue);
+    expect(got.body, isEmpty);
+
+    // Erased for good: a restart does not bring it back.
+    final Messenger again = await relay.reopen(bStore);
+    final ChatMessage stored =
+        again.conversations['d:alice']!.messages.lastWhere((ChatMessage m) => !m.system);
+    expect(stored.burned, isTrue);
+    expect(stored.body, isEmpty);
+
+    // The SENDER keeps their own copy: view-once is a request to the reader's
+    // client, not a power over someone else's device.
+    expect(alice.conversations['d:bob']!.messages.last.body, 'the safe code is 4821');
   });
 
   test('padding hides message length from the relay', () {

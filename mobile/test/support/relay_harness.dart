@@ -18,21 +18,25 @@ import 'package:http/http.dart' as http;
 const String testPassword = 'correct-horse-battery-staple';
 
 class RelayHarness {
-  RelayHarness._(this.port, this.dir);
+  RelayHarness._(this.port, this.dir, {this.demoAttacks = false});
 
   final int port;
   final Directory dir;
+
+  /// Start the relay with DEMO_ATTACKS=1 so tests can arm its demo attacks.
+  final bool demoAttacks;
   Process? _process;
 
   String get baseUrl => 'http://127.0.0.1:$port';
   String get dbPath => '${dir.path}${Platform.pathSeparator}relay.db';
 
-  static Future<RelayHarness> start() async {
+  static Future<RelayHarness> start({bool demoAttacks = false}) async {
     final ServerSocket probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     final int port = probe.port;
     await probe.close();
-    final RelayHarness h =
-        RelayHarness._(port, await Directory.systemTemp.createTemp('helo-relay-test-'));
+    final RelayHarness h = RelayHarness._(
+        port, await Directory.systemTemp.createTemp('helo-relay-test-'),
+        demoAttacks: demoAttacks);
     await h.resume();
     return h;
   }
@@ -42,7 +46,10 @@ class RelayHarness {
     _process = await Process.start(
       'node',
       <String>['../backend/src/server.js'],
-      environment: <String, String>{'PORT': '$port', 'HOST': '127.0.0.1', 'DB_PATH': dbPath},
+      environment: <String, String>{
+        'PORT': '$port', 'HOST': '127.0.0.1', 'DB_PATH': dbPath,
+        if (demoAttacks) 'DEMO_ATTACKS': '1',
+      },
     );
     // Drain output so the child never blocks on a full pipe.
     _process!.stdout.listen((_) {});

@@ -168,6 +168,9 @@ class Messenger {
   /// profile, message) must not each consume one of the peer's one-time keys.
   final Map<String, Future<FetchedBundle>> _bundleFetches = <String, Future<FetchedBundle>>{};
   Future<void>? _reauth;
+  /// Messages this device refused, newest first (see [_recordRejection]).
+  final List<SecurityIncident> incidents = <SecurityIncident>[];
+
   Timer? _saveTimer;
   final Set<String> _dirtyHistory = <String>{};
   final Map<String, DateTime> _typingSentAt = <String, DateTime>{};
@@ -487,11 +490,31 @@ class Messenger {
   }
 
   /// Send a text message (optionally replying to [replyToId]).
-  Future<ChatMessage> sendText(String convId, String text, {String? replyToId}) async {
+  Future<ChatMessage> sendText(String convId, String text,
+      {String? replyToId, bool viewOnce = false}) async {
     final String body = text.trim();
     if (body.isEmpty) throw const MessengerException('Nothing to send.');
     if (body.length > maxBodyChars) throw const MessengerException('Message is too long.');
-    return _sendMessage(convId, body: body, replyToId: replyToId);
+    return _sendMessage(convId, body: body, replyToId: replyToId, viewOnce: viewOnce);
+  }
+
+  /// Erase a view-once message's content on THIS device, after it was shown.
+  ///
+  /// The copy here is destroyed and the erasure persisted. Nothing is asked of
+  /// the relay (it never had the plaintext) and nothing is asked of the other
+  /// device: a sender cannot make a receiver forget.
+  Future<void> burnViewOnce(String convId, String messageId) async {
+    final Conversation? c = conversations[convId];
+    final ChatMessage? m = c?.byId(messageId);
+    if (c == null || m == null || !m.viewOnce || m.burned) return;
+    m
+      ..body = ''
+      ..attachments = const <AttachmentRef>[]
+      ..burned = true;
+    _attachmentCache.remove(messageId);
+    _markDirty(c);
+    _emit();
+    await flush();
   }
 
   Future<ChatMessage> _sendMessage(
@@ -500,6 +523,7 @@ class Messenger {
     String? replyToId,
     List<AttachmentRef> attachments = const <AttachmentRef>[],
     bool forwarded = false,
+    bool viewOnce = false,
   }) async {
     final Conversation c = _conv(convId);
     _requireCanSend(c);
@@ -524,6 +548,7 @@ class Messenger {
       reply: reply,
       attachments: attachments,
       forwarded: forwarded,
+      viewOnce: viewOnce,
       expireSeconds: c.disappearingSeconds > 0 ? c.disappearingSeconds : null,
     );
     final ChatMessage message = ChatMessage(
@@ -536,6 +561,7 @@ class Messenger {
       reply: reply,
       attachments: attachments,
       forwarded: forwarded,
+      viewOnce: viewOnce,
       status: MessageStatus.pending,
       expiresAt: c.disappearingSeconds > 0 ? now.add(Duration(seconds: c.disappearingSeconds)) : null,
     );
@@ -544,6 +570,37 @@ class Messenger {
     await _shareProfileIfNeeded(c);
     await _send(c, payload, message: message);
     return message;
+  }
+
+  /// Tell the user about devices that appeared, or keys that changed, for [u].
+  ///
+  /// A device's key never changes legitimately (a reset registers a NEW device
+  /// id), so a changed key means the relay is misbehaving: that device stays
+  /// blocked and there is no "accept it anyway" path to abuse.
+  Future<void> _noteDirectoryChanges(Conversation? c, String u, DirectoryLookup found) async {
+    if (found.added.isEmpty && found.conflicts.isEmpty) return;
+    if (c != null && found.added.isNotEmpty) {
+      _systemNotice(c, '${_label(u)} added a new device. It is not verified.');
+    }
+    if (c != null && found.conflicts.isNotEmpty) {
+      _systemNotice(c, 'The relay reported a different key for one of ${_label(u)}\'s '
+          'devices. Keys never change for a device, so nothing more will be sent to it. '
+          'Compare safety numbers with ${_label(u)} in person.');
+    }
+    await _persistDirectory();
+    if (c != null) _markDirty(c);
+    _emit();
+  }
+
+  /// Re-fetch [user]'s devices from the relay, ignoring the directory cache.
+  ///
+  /// Normal sends reuse a cached lookup for a while, so a relay that starts
+  /// serving a substituted key is not noticed until the next real fetch. This
+  /// forces that fetch — used by the verification UI and the attack demo.
+  Future<DirectoryLookup> refreshDevices(String user) async {
+    final DirectoryLookup found = await _authed(() => directory.lookup(user, refresh: true));
+    await _noteDirectoryChanges(conversations[Conversation.directId(user)], user, found);
+    return found;
   }
 
   void _requireCanSend(Conversation c) {
@@ -575,19 +632,7 @@ class Messenger {
         try {
           final DirectoryLookup found = await _authed(() => directory.lookup(u));
           devices.addAll(found.devices);
-          if (found.added.isNotEmpty) {
-            _systemNotice(c, '${_label(u)} added a new device. It is not verified.');
-            await _persistDirectory();
-          }
-          if (found.conflicts.isNotEmpty) {
-            // A device's key never changes legitimately (a reset registers a
-            // NEW device id), so a changed key means the relay is misbehaving:
-            // the device stays blocked; there is no "accept" path to abuse.
-            _systemNotice(c, 'The relay reported a different key for one of ${_label(u)}\'s '
-                'devices. Keys never change for a device, so nothing more will be sent to it. '
-                'Compare safety numbers with ${_label(u)} in person.');
-            await _persistDirectory();
-          }
+          await _noteDirectoryChanges(c, u, found);
         } on RelayException catch (e) {
           if (!e.isPermanent) rethrow;
           problems.add('${_label(u)} is not reachable.');
@@ -625,6 +670,13 @@ class Messenger {
     final Uint8List plaintext = payload.encode(_padding);
     final Map<String, Map<String, dynamic>> envelopes =
         await _lock.run(() => _encryptFor(devices, bundles, plaintext, c, problems));
+    if (message != null && envelopes.isNotEmpty) {
+      try {
+        message.wire = WireInfo.fromEnvelope(envelopes.values.first, devices: envelopes.length);
+      } on Object {
+        // X-Ray is informational only; never let it affect sending.
+      }
+    }
 
     if (envelopes.isEmpty) {
       if (message != null) {
@@ -811,12 +863,19 @@ class Messenger {
         final AppPayload? payload =
             await _lock.run(() => _open(item.senderDeviceId, sender, env));
         if (payload == null) continue;
-        await _dispatch(sender, payload, delivered);
+        WireInfo? wire;
+        try {
+          wire = WireInfo.fromEnvelope(env.toJson());
+        } on Object {
+          wire = null;
+        }
+        await _dispatch(sender, payload, delivered, wire: wire);
       } on HeloError catch (e) {
         logger.security('message_rejected', <String, Object?>{
           'outcome': 'rejected',
           'error_class': e.runtimeType.toString(),
         });
+        _recordRejection(sender, e);
       } on MessengerException {
         continue;
       }
@@ -903,8 +962,9 @@ class Messenger {
   Future<void> _dispatch(
     String sender,
     AppPayload p,
-    Map<String, Map<String, List<String>>> delivered,
-  ) async {
+    Map<String, Map<String, List<String>>> delivered, {
+    WireInfo? wire,
+  }) async {
     if (p.kind == PayloadKind.profile) {
       final Contact c = contacts.putIfAbsent(sender, () => Contact(sender));
       c.displayName = p.displayName;
@@ -943,8 +1003,10 @@ class Messenger {
           reply: p.reply,
           attachments: p.attachments,
           forwarded: p.forwarded,
+          viewOnce: p.viewOnce,
           expiresAt: p.expireSeconds == null ? null : now.add(Duration(seconds: p.expireSeconds!)),
         );
+        m.wire = wire;
         _addMessage(c, m);
         c.typing.remove(sender);
         if (activeConversationId != c.id) c.unread += 1;
@@ -1894,6 +1956,30 @@ class Messenger {
     c.messages.add(m);
     if (c.messages.length > _maxHistory) c.messages.removeRange(0, c.messages.length - _maxHistory);
     _markDirty(c);
+  }
+
+  /// Longest history of refusals kept in memory (diagnostics only).
+  static const int _maxIncidents = 50;
+
+  /// Note a refused message so it is visible instead of silently dropped: in
+  /// the incident list, and — when the conversation already exists — as a
+  /// notice in that chat.
+  void _recordRejection(String sender, HeloError e) {
+    final String kind = e.runtimeType.toString();
+    incidents.insert(0, SecurityIncident(
+      at: DateTime.now(),
+      sender: sender,
+      errorClass: kind,
+      explanation: describeRejection(kind),
+    ));
+    if (incidents.length > _maxIncidents) incidents.removeLast();
+    final Conversation? c = conversations[Conversation.directId(sender)];
+    if (c != null) {
+      _systemNotice(c, 'A message from ${_label(sender)} was REFUSED ($kind): '
+          '${describeRejection(kind)}');
+      _markDirty(c);
+    }
+    _emit();
   }
 
   void _systemNotice(Conversation c, String text) {

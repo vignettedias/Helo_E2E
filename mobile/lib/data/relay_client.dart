@@ -7,7 +7,8 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -129,12 +130,63 @@ class SecurityEvent {
 
 DateTime _secs(int s) => DateTime.fromMillisecondsSinceEpoch(s * 1000);
 
+/// One request this client made, for the network inspector.
+///
+/// Deliberately records only what a network observer would already see:
+/// method, path, status, byte counts and duration. Never headers (the bearer
+/// token), never bodies (ciphertext).
+class RelayCall {
+  RelayCall({
+    required this.at,
+    required this.method,
+    required this.path,
+    required this.status,
+    required this.requestBytes,
+    required this.responseBytes,
+    required this.milliseconds,
+  });
+
+  final DateTime at;
+  final String method;
+  final String path;
+
+  /// 0 when the request never got a response (offline).
+  final int status;
+  final int requestBytes;
+  final int responseBytes;
+  final int milliseconds;
+
+  bool get ok => status >= 200 && status < 300;
+}
+
 class RelayClient {
   RelayClient({required this.baseUrl, http.Client? client})
       : _client = client ?? http.Client();
 
   final String baseUrl;
   final http.Client _client;
+
+  /// Recent requests, newest first (network inspector). Capped; in-memory only.
+  final List<RelayCall> calls = <RelayCall>[];
+
+  /// Bumped whenever [calls] changes, so a UI can rebuild without polling.
+  final ValueNotifier<int> trafficVersion = ValueNotifier<int>(0);
+
+  static const int _maxCalls = 120;
+
+  void _record(String method, String path, int status, int reqBytes, int resBytes, Stopwatch sw) {
+    calls.insert(0, RelayCall(
+      at: DateTime.now(),
+      method: method,
+      path: path,
+      status: status,
+      requestBytes: reqBytes,
+      responseBytes: resBytes,
+      milliseconds: sw.elapsedMilliseconds,
+    ));
+    if (calls.length > _maxCalls) calls.removeLast();
+    trafficVersion.value++;
+  }
 
   String? _accountToken;
   String? _deviceToken;
@@ -183,7 +235,15 @@ class RelayClient {
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
     if (body != null) req.body = jsonEncode(body);
 
-    final http.Response response = await http.Response.fromStream(await _client.send(req));
+    final Stopwatch sw = Stopwatch()..start();
+    late final http.Response response;
+    try {
+      response = await http.Response.fromStream(await _client.send(req));
+    } on Object {
+      _record(method, path, 0, req.bodyBytes.length, 0, sw);
+      rethrow;
+    }
+    _record(method, path, response.statusCode, req.bodyBytes.length, response.bodyBytes.length, sw);
     if (response.statusCode >= 400) _fail(response, response.body);
     if (response.body.isEmpty) return <String, dynamic>{};
     final Object? parsed = jsonDecode(response.body);
@@ -397,6 +457,24 @@ class RelayClient {
         body['one_time_prekey_available'] as bool? ?? false);
   }
 
+  // --- demo attack switch (relay DEMO_ATTACKS=1 only) ----------------------
+
+  /// Current demo attack mode, or null when the relay was not started with
+  /// DEMO_ATTACKS=1 (the routes then do not exist at all).
+  Future<Map<String, dynamic>?> demoAttackState() async {
+    try {
+      return await _request('GET', '/demo/attack', token: _accountToken);
+    } on RelayException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Arm (or disarm, with 'none') a demo attack on the relay.
+  Future<void> setDemoAttack(String mode) async {
+    await _request('POST', '/demo/attack', token: _accountToken, body: <String, Object?>{'mode': mode});
+  }
+
   // --- messages -----------------------------------------------------------
 
   /// One envelope per recipient device, in one request. Each item succeeds or
@@ -476,7 +554,9 @@ class RelayClient {
           ..headers['Authorization'] = 'Bearer $_deviceToken'
           ..headers['X-Helo-Recipients'] = recipientDevices.join(',')
           ..bodyBytes = ciphertext;
+    final Stopwatch sw = Stopwatch()..start();
     final http.Response response = await http.Response.fromStream(await _client.send(req));
+    _record('POST', '/attachments', response.statusCode, ciphertext.length, response.bodyBytes.length, sw);
     if (response.statusCode >= 400) _fail(response, response.body);
     return (jsonDecode(response.body) as Map<String, dynamic>)['attachment_id']! as String;
   }
@@ -485,7 +565,9 @@ class RelayClient {
     final http.Request req = http.Request(
         'GET', Uri.parse('$baseUrl/attachments/${Uri.encodeComponent(attachmentId)}'))
       ..headers['Authorization'] = 'Bearer $_deviceToken';
+    final Stopwatch sw = Stopwatch()..start();
     final http.Response response = await http.Response.fromStream(await _client.send(req));
+    _record('GET', '/attachments/…', response.statusCode, 0, response.bodyBytes.length, sw);
     if (response.statusCode >= 400) _fail(response, response.body);
     return response.bodyBytes;
   }

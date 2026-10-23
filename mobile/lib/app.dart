@@ -2,13 +2,16 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'data/relay_address.dart';
 import 'data/relay_client.dart';
 import 'domain/messenger.dart';
 import 'storage/crypto_storage.dart';
+import 'ui/widgets/cyberdeck.dart';
 import 'ui/screens/home_shell.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/theme.dart';
@@ -44,7 +47,8 @@ class HeloApp extends StatefulWidget {
 class _HeloAppState extends State<HeloApp> {
   final CryptoStorage _storage = PlatformCryptoStorage();
   final GlobalKey<NavigatorState> _navigator = GlobalKey<NavigatorState>();
-  late final RelayClient _relay = RelayClient(baseUrl: relayUrl);
+  RelayClient? _relay;
+  String _relayBase = relayUrl;
   Messenger? _messenger;
   StreamSubscription<void>? _sub;
   bool _ready = false;
@@ -58,7 +62,15 @@ class _HeloAppState extends State<HeloApp> {
 
   Future<void> _bootstrap() async {
     try {
-      final Messenger? m = await Messenger.restore(storage: _storage, relay: _relay);
+      final Uint8List? stored = await _storage.get(StorageKeys.relayUrl);
+      final String? saved = stored == null ? null : normaliseRelayUrl(utf8.decode(stored));
+      if (saved != null) _relayBase = saved;
+    } on Object {
+      // Unreadable setting: fall back to the build-time default.
+    }
+    _relay = RelayClient(baseUrl: _relayBase);
+    try {
+      final Messenger? m = await Messenger.restore(storage: _storage, relay: _relay!);
       if (m != null) _adopt(m);
     } on Object {
       // Stored key material that cannot be read is not repaired or guessed
@@ -84,6 +96,20 @@ class _HeloAppState extends State<HeloApp> {
     _messenger = m;
   }
 
+  /// Point this device at a different relay. Only possible before a device
+  /// is registered: sessions and prekeys live on one relay, so moving an
+  /// existing device would strand them.
+  Future<void> _setRelay(String url) async {
+    final String? clean = normaliseRelayUrl(url);
+    if (clean == null || clean == _relayBase) return;
+    await _storage.put(StorageKeys.relayUrl, Uint8List.fromList(utf8.encode(clean)));
+    _relay?.close();
+    setState(() {
+      _relayBase = clean;
+      _relay = RelayClient(baseUrl: clean);
+    });
+  }
+
   Future<void> _wipeAfterBootError() async {
     await _storage.wipeAll();
     setState(() => _bootError = null);
@@ -93,14 +119,14 @@ class _HeloAppState extends State<HeloApp> {
   void dispose() {
     _sub?.cancel();
     unawaited(_messenger?.dispose());
-    _relay.close();
+    _relay?.close();
     super.dispose();
   }
 
   ThemeMode get _themeMode => switch (_messenger?.settings.theme) {
         'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        _ => ThemeMode.system,
+        'system' => ThemeMode.system,
+        _ => ThemeMode.dark, // Cyberdeck: the terminal is dark unless the user asks otherwise
       };
 
   @override
@@ -113,6 +139,7 @@ class _HeloAppState extends State<HeloApp> {
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
       themeMode: _themeMode,
+      builder: (BuildContext context, Widget? child) => Scanlines(child: child ?? const SizedBox()),
       home: !_ready
           ? const _Splash()
           : _bootError != null
@@ -120,7 +147,8 @@ class _HeloAppState extends State<HeloApp> {
               : m == null
                   ? OnboardingScreen(
                       storage: _storage,
-                      relay: _relay,
+                      relay: _relay!,
+                      onRelayChanged: _setRelay,
                       onReady: (Messenger fresh) => setState(() => _adopt(fresh)),
                     )
                   : HomeShell(key: ValueKey<String>(m.deviceId), messenger: m),

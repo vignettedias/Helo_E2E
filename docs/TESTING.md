@@ -90,7 +90,7 @@ Node is missing.
 python scripts/run_demo.py --fresh
 ```
 
-Open http://localhost:5000 (Alice) and http://localhost:5001 (Bob). What was exercised on 2026-10-16 is listed in `docs/IMPLEMENTATION_STATUS.md`.
+Open http://localhost:5000 (User 1) and http://localhost:5001 (User 2). What was exercised on 2026-10-16 is listed in `docs/IMPLEMENTATION_STATUS.md`.
 Attachments were not exercised there, because the browser automation cannot drive the OS file picker; `messenger_test.dart` covers them.
 
 ## Latest results

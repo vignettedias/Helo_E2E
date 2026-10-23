@@ -125,7 +125,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
             AspectRatio(
               aspectRatio: 1,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(4),
                 child: ColoredBox(
                   color: Colors.black,
                   child: c != null && c.value.isInitialized
