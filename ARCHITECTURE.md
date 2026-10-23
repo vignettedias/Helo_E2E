@@ -86,7 +86,7 @@ helo/
 │
 ├── tests/{unit,adversarial,property,integration,vectors}/
 ├── scripts/{generate_test_vectors,benchmark,integration_e2e,run_demo}.py
-├── docker/{Dockerfile,docker-compose.yml,Caddyfile}
+├── docker/{Dockerfile,web.Dockerfile,docker-compose{,.local}.yml,Caddyfile{,.web}}
 └── .github/workflows/ci.yml
 ```
 

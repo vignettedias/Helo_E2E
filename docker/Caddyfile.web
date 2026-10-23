@@ -1,0 +1,43 @@
+# Static server for the Helo web client (docker/web.Dockerfile).
+#
+# Plain HTTP on :8080. In production the TLS proxy (docker/Caddyfile) sits in
+# front; in the local demo the browser talks to it directly on localhost.
+#
+# HELO_CONNECT_SRC lists any origin the client must reach besides its own,
+# e.g. http://localhost:8443 for the local demo, where the relay is on another
+# port. Empty in production: the relay is reached through the same origin.
+
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		# Flutter needs wasm for CanvasKit and inline styles for its DOM. Code
+		# and assets come only from this origin. The one third party is
+		# fonts.gstatic.com: CanvasKit fetches emoji and non-Latin fallback fonts
+		# from it on first use, even with --no-web-resources-cdn, and without
+		# them emoji render as empty boxes. It receives font requests only,
+		# never message content.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' blob: data: https://fonts.gstatic.com {$HELO_CONNECT_SRC:}; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+		# Camera and microphone are used for photos and voice messages.
+		Permissions-Policy "geolocation=(), camera=(self), microphone=(self)"
+		-Server
+	}
+
+	# Entry points change on every deploy; everything else is content-hashed
+	# or versioned by Flutter and may be cached.
+	@entry path / /index.html /flutter_bootstrap.js /flutter_service_worker.js /version.json /manifest.json /verification.json
+	header @entry Cache-Control "no-cache"
+
+	try_files {path} /index.html
+	file_server
+}

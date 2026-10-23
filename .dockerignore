@@ -7,3 +7,7 @@
 **/*.db-wal
 **/*.db-shm
 .git
+mobile/build
+mobile/.dart_tool
+mobile/.flutter-plugins*
+mobile/android/.gradle

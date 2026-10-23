@@ -1,4 +1,4 @@
-# TLS termination for the Helo relay.
+# TLS termination for the Helo relay and web client.
 #
 # Caddy obtains and renews certificates automatically. Note carefully: TLS here
 # protects metadata in transit and authenticates the SERVER to the client. It
@@ -14,10 +14,16 @@
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "no-referrer"
-		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
-		Permissions-Policy "geolocation=(), microphone=(), camera=()"
 		-Server
 	}
+	# Content-Security-Policy and Permissions-Policy come from each backend:
+	# the relay sends default-src 'none' on every API response, and the web
+	# container sends the policy the app needs (docker/Caddyfile.web). Setting
+	# one here would override the other.
+
+	# The relay API, on the same origin as the app. These are the relay's
+	# top-level routes (the same list as RELAY_PREFIXES in scripts/run_demo.py).
+	@relay path /auth /auth/* /devices /devices/* /prekeys /prekeys/* /users /users/* /presence /presence/* /messages /messages/* /delivery /delivery/* /attachments /attachments/* /me /me/* /reports /reports/* /health
 
 	# Server-Sent Events delivery stream must not be buffered or timed out.
 	@stream path /messages/stream
@@ -28,7 +34,10 @@
 		}
 	}
 
-	reverse_proxy relay:8443
+	reverse_proxy @relay relay:8443
+
+	# Everything else is the web client.
+	reverse_proxy web:8080
 
 	log {
 		output stdout

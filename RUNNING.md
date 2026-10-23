@@ -138,7 +138,8 @@ Exit code 0 means all 24 checks passed.
 ## 4. Web demo
 
 **Requires:** Flutter 3.22+, Python 3.11+, Node 22.5+. No Android SDK, Xcode or
-Visual Studio needed — the client runs in the browser.
+Visual Studio needed — the client runs in the browser. With Docker instead,
+see §6: no Flutter, Node or Python needed.
 
 ```bash
 cd mobile && flutter build web && cd ..
@@ -275,23 +276,52 @@ rejected before any private key is touched.
 
 ---
 
-## 6. Deployment (Docker)
+## 6. Docker
 
-**Requires:** Docker with Compose v2, and a domain pointing at the host.
+Two compose files. Both build the relay (`docker/Dockerfile`) and the web
+client (`docker/web.Dockerfile`, which compiles the Flutter app inside the
+image), so the host needs only Docker with Compose v2: no Flutter, Node or
+Python. The first build downloads the Flutter SDK and takes several minutes.
+
+### On one machine
+
+```bash
+docker compose -f docker/docker-compose.local.yml up -d --build
+```
+
+Open http://localhost:5000 (Alice) and http://localhost:5001 (Bob), then follow
+the steps in §4. Every port is bound to 127.0.0.1. The relay's data lives in a
+Docker volume; `docker compose -f docker/docker-compose.local.yml down -v`
+stops everything and deletes it (clear the tabs' site data afterwards, as with
+`--fresh`).
+
+### On a server
+
+**Requires:** a domain pointing at the host, and ports 80 and 443 open.
 
 ```bash
 cd docker
-RELAY_DOMAIN=relay.example.com docker compose up -d --build
+RELAY_DOMAIN=chat.example.com docker compose up -d --build
 docker compose logs -f relay
 ```
 
-Caddy obtains TLS certificates automatically. The relay runs read-only,
-non-root, with all Linux capabilities dropped, on an internal network not
-reachable from outside.
+Open https://chat.example.com. Caddy obtains TLS certificates automatically
+and serves the web client and the relay API on that one origin, so the browser
+needs no CORS. The relay and web containers run read-only, non-root, with all
+Linux capabilities dropped, on an internal network not reachable from outside;
+only Caddy is published.
 
 TLS here protects **metadata** in transit and authenticates the server. It
 contributes nothing to message confidentiality — a fully compromised TLS
 terminator still sees only ciphertext.
+
+**Known limit:** behind the proxy the relay sees every request coming from the
+Caddy container, so its per-IP limits (3 sign-ups per hour, 5 logins per
+minute) are shared by all users of the server.
+
+The web client fetches emoji and non-Latin fallback fonts from
+fonts.gstatic.com the first time it needs them; its Content-Security-Policy
+(`docker/Caddyfile.web`) allows that one host and nothing else.
 
 ---
 

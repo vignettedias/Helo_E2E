@@ -224,7 +224,7 @@ helo/
 │   ├── lib/ui/                 screens, widgets, theme
 │   ├── android/ ios/ web/ windows/   generated platform projects
 │   └── test/                   vectors, protocol v2, Messenger + chat UI against the real relay
-├── docker/                     hardened deployment + TLS
+├── docker/                     relay + web client images, compose, TLS
 └── .github/workflows/ci.yml    CI with security gates
 ```
 
@@ -285,11 +285,17 @@ self-signed certificate that shows a one-time warning. Steps are in RUNNING.md, 
 ## Deployment
 
 ```bash
-cd docker && RELAY_DOMAIN=relay.example.com docker compose up -d --build
+# on your machine: http://localhost:5000 and http://localhost:5001
+docker compose -f docker/docker-compose.local.yml up -d --build
+
+# on a server: the app and the relay API at https://chat.example.com
+cd docker && RELAY_DOMAIN=chat.example.com docker compose up -d --build
 ```
 
-Read-only container, non-root, all capabilities dropped, relay off the public
-network, TLS terminated by Caddy. See `docker/` and SECURITY.md.
+Only Docker is needed on the host: the web client is compiled inside its own
+image. Read-only containers, non-root, all capabilities dropped, relay and web
+client off the public network, TLS terminated by Caddy. See RUNNING.md §6,
+`docker/` and SECURITY.md.
 
 ---
 

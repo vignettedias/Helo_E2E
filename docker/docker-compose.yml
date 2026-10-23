@@ -1,8 +1,11 @@
-# Helo relay deployment.
+# Helo deployment: relay, web client, and a TLS proxy in front of both.
 #
 # The zero-trust property is preserved here: the relay container has no key
 # material, and the reverse proxy terminates TLS without ever seeing plaintext
 # messages -- it sees ciphertext envelopes, exactly as the relay does.
+#
+# The proxy serves the web client and the relay API on ONE origin
+# (https://$RELAY_DOMAIN), so the browser needs no CORS and no mixed content.
 
 services:
   relay:
@@ -36,13 +39,31 @@ services:
     networks: [internal]
     expose: ["8443"]
 
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    # Static files only: no state, no capabilities, no write access.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks: [internal]
+    expose: ["8080"]
+
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
-    depends_on: [relay]
+    depends_on: [relay, web]
     ports:
       - "443:443"
       - "80:80"
+    environment:
+      RELAY_DOMAIN: ${RELAY_DOMAIN:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -57,7 +78,7 @@ volumes:
   caddy-config:
 
 networks:
-  # The relay is NOT on the public network. Only the proxy is reachable.
+  # The relay and web client are NOT on the public network. Only the proxy is reachable.
   internal:
     internal: true
   public:

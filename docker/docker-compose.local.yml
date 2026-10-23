@@ -1,0 +1,60 @@
+# Helo on one machine: the relay plus the web client, no Flutter, Node or
+# Python needed on the host.
+#
+#   docker compose -f docker/docker-compose.local.yml up -d --build
+#
+# Then open http://localhost:5000 (Alice) and http://localhost:5001 (Bob).
+# The same web container is published on two ports because each port is a
+# separate browser origin with its own key storage, so two tabs are two
+# genuinely different devices, as with scripts/run_demo.py.
+#
+# Every port is bound to 127.0.0.1 only. Plain HTTP is acceptable on
+# localhost; for anything reachable from a network use docker-compose.yml,
+# which terminates TLS.
+
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 8443
+      HOST: 0.0.0.0
+      DB_PATH: /data/helo.db
+      # A browser served over plain HTTP calls the relay on port 8443 of the
+      # page's host, a cross-origin request, so exactly these origins are allowed.
+      CORS_ORIGINS: http://localhost:5000,http://localhost:5001
+    volumes:
+      - relay-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:8443:8443"
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    depends_on: [relay]
+    environment:
+      HELO_CONNECT_SRC: http://localhost:8443
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:5000:8080"
+      - "127.0.0.1:5001:8080"
+
+volumes:
+  relay-data:
