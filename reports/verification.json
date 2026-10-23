@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-24T00:37:50+05:30",
+  "generated_at": "2026-10-24T01:15:40+05:30",
   "environment": "Windows 11 · Python 3.14.6 · cryptography 50.0.0 (OpenSSL 4.0.1 9 Jun 2026) · Node v24.16.0 · Flutter 3.47.0",
   "totals": {
     "PASS": 10
@@ -16,7 +16,7 @@
       "status": "PASS",
       "passed": 147,
       "total": 147,
-      "duration_s": 3.1,
+      "duration_s": 2.2,
       "tests": [
         {
           "name": "tests.unit.test_demo_build_check::test_a_complete_build_passes",
@@ -616,7 +616,7 @@
       "status": "PASS",
       "passed": 49,
       "total": 49,
-      "duration_s": 2.2,
+      "duration_s": 1.6,
       "tests": [
         {
           "name": "tests.adversarial.test_adversarial::test_bitflip_in_ciphertext_fails_authentication",
@@ -824,7 +824,7 @@
       "status": "PASS",
       "passed": 18,
       "total": 18,
-      "duration_s": 7.0,
+      "duration_s": 4.9,
       "tests": [
         {
           "name": "tests.property.test_padding_attachment_properties::test_padding_round_trips_for_any_payload",
@@ -908,7 +908,7 @@
       "status": "PASS",
       "passed": 23,
       "total": 23,
-      "duration_s": 5.6,
+      "duration_s": 6.2,
       "tests": [
         {
           "name": "tests.integration.test_demo_proxy::test_encrypted_media_upload_through_the_proxy_reaches_the_recipient[photo.jpg (small image)]",
@@ -1012,7 +1012,7 @@
       "status": "PASS",
       "passed": 1,
       "total": 1,
-      "duration_s": 0.5,
+      "duration_s": 0.3,
       "tests": [
         {
           "name": "tests/vectors/*.json reproduce",
@@ -1029,7 +1029,7 @@
       "status": "PASS",
       "passed": 51,
       "total": 51,
-      "duration_s": 10.1,
+      "duration_s": 12.8,
       "tests": [
         {
           "name": "test::without DEMO_ATTACKS the switch does not exist at all",
@@ -1245,7 +1245,7 @@
       "status": "PASS",
       "passed": 29,
       "total": 29,
-      "duration_s": 3.0,
+      "duration_s": 3.5,
       "tests": [
         {
           "name": "both accounts and devices registered",
@@ -1390,12 +1390,12 @@
       "status": "PASS",
       "passed": 1,
       "total": 1,
-      "duration_s": 16.1,
+      "duration_s": 35.1,
       "tests": [
         {
           "name": "flutter analyze",
           "status": "PASS",
-          "details": "Analyzing mobile...                                             \nNo issues found! (ran in 10.7s)"
+          "details": "Analyzing mobile...                                             \nNo issues found! (ran in 29.9s)"
         }
       ]
     },
@@ -1407,7 +1407,7 @@
       "status": "PASS",
       "passed": 119,
       "total": 119,
-      "duration_s": 137.0,
+      "duration_s": 143.1,
       "tests": [
         {
           "name": "lab: Hybrid handshake (PQXDH)",
@@ -1418,23 +1418,7 @@
           "status": "PASS"
         },
         {
-          "name": "PQXDH conformance (against the reference and OpenSSL) info string matches the reference",
-          "status": "PASS"
-        },
-        {
-          "name": "PQXDH conformance (against the reference and OpenSSL) ML-KEM seeded keygen reproduces the OpenSSL public key",
-          "status": "PASS"
-        },
-        {
-          "name": "PQXDH conformance (against the reference and OpenSSL) ML-KEM decapsulation reproduces the OpenSSL shared secret",
-          "status": "PASS"
-        },
-        {
           "name": "lab: Replay an old message",
-          "status": "PASS"
-        },
-        {
-          "name": "PQXDH conformance (against the reference and OpenSSL) the reference hybrid bundle verifies, including the PQ signature",
           "status": "PASS"
         },
         {
@@ -1442,23 +1426,7 @@
           "status": "PASS"
         },
         {
-          "name": "accepts an origin and drops a trailing slash",
-          "status": "PASS"
-        },
-        {
-          "name": "refuses anything that is not a bare origin",
-          "status": "PASS"
-        },
-        {
-          "name": "warns only when cleartext actually crosses a network",
-          "status": "PASS"
-        },
-        {
           "name": "lab: Relay hides the PQ prekey",
-          "status": "PASS"
-        },
-        {
-          "name": "PQXDH conformance (against the reference and OpenSSL) responder derives the reference session key, AD and session id",
           "status": "PASS"
         },
         {
@@ -1474,19 +1442,27 @@
           "status": "PASS"
         },
         {
+          "name": "PQXDH conformance (against the reference and OpenSSL) info string matches the reference",
+          "status": "PASS"
+        },
+        {
+          "name": "PQXDH conformance (against the reference and OpenSSL) ML-KEM seeded keygen reproduces the OpenSSL public key",
+          "status": "PASS"
+        },
+        {
+          "name": "PQXDH conformance (against the reference and OpenSSL) ML-KEM decapsulation reproduces the OpenSSL shared secret",
+          "status": "PASS"
+        },
+        {
+          "name": "PQXDH conformance (against the reference and OpenSSL) the reference hybrid bundle verifies, including the PQ signature",
+          "status": "PASS"
+        },
+        {
+          "name": "PQXDH conformance (against the reference and OpenSSL) responder derives the reference session key, AD and session id",
+          "status": "PASS"
+        },
+        {
           "name": "PQXDH conformance (against the reference and OpenSSL) responder decrypts the reference hybrid first message",
-          "status": "PASS"
-        },
-        {
-          "name": "E1 padding figures match scripts/experiments/padding_overhead.py",
-          "status": "PASS"
-        },
-        {
-          "name": "E2 handshake figures match scripts/experiments/handshake_cost.py",
-          "status": "PASS"
-        },
-        {
-          "name": "E3 relay-database figures match scripts/experiments/metadata_inventory.py",
           "status": "PASS"
         },
         {
@@ -1498,7 +1474,15 @@
           "status": "PASS"
         },
         {
-          "name": "a displayed code decodes from a PNG screenshot and verifies",
+          "name": "accepts an origin and drops a trailing slash",
+          "status": "PASS"
+        },
+        {
+          "name": "refuses anything that is not a bare origin",
+          "status": "PASS"
+        },
+        {
+          "name": "warns only when cleartext actually crosses a network",
           "status": "PASS"
         },
         {
@@ -1510,11 +1494,27 @@
           "status": "PASS"
         },
         {
+          "name": "a displayed code decodes from a PNG screenshot and verifies",
+          "status": "PASS"
+        },
+        {
           "name": "PQXDH behaviour and attacks (Dart ↔ Dart) a downgraded initial message is refused by the hybrid policy",
           "status": "PASS"
         },
         {
+          "name": "E1 padding figures match scripts/experiments/padding_overhead.py",
+          "status": "PASS"
+        },
+        {
           "name": "PQXDH behaviour and attacks (Dart ↔ Dart) header version and PQ data must agree",
+          "status": "PASS"
+        },
+        {
+          "name": "E2 handshake figures match scripts/experiments/handshake_cost.py",
+          "status": "PASS"
+        },
+        {
+          "name": "E3 relay-database figures match scripts/experiments/metadata_inventory.py",
           "status": "PASS"
         },
         {
@@ -1570,15 +1570,11 @@
           "status": "PASS"
         },
         {
-          "name": "identity conformance identities reconstruct to the reference public keys",
-          "status": "PASS"
-        },
-        {
-          "name": "identity conformance fingerprints match the reference",
-          "status": "PASS"
-        },
-        {
           "name": "a lossy, large camera-like JPEG still decodes",
+          "status": "PASS"
+        },
+        {
+          "name": "identity conformance identities reconstruct to the reference public keys",
           "status": "PASS"
         },
         {
@@ -1595,6 +1591,10 @@
         },
         {
           "name": "the exact encoder the app displays with (qr_flutter / package:qr) decodes",
+          "status": "PASS"
+        },
+        {
+          "name": "identity conformance fingerprints match the reference",
           "status": "PASS"
         },
         {
@@ -1646,6 +1646,10 @@
           "status": "PASS"
         },
         {
+          "name": "two users exchange messages over a hybrid PQXDH session",
+          "status": "PASS"
+        },
+        {
           "name": "local protocol behaviour tampered ciphertext fails authentication",
           "status": "PASS"
         },
@@ -1658,19 +1662,11 @@
           "status": "PASS"
         },
         {
-          "name": "two users exchange messages over a hybrid PQXDH session",
-          "status": "PASS"
-        },
-        {
-          "name": "RUN ALL prints every experiment and a 6/6 summary",
-          "status": "PASS"
-        },
-        {
           "name": "the switch is reachable only because this relay was started for a demo",
           "status": "PASS"
         },
         {
-          "name": "tap on a bubble opens the actions sheet",
+          "name": "RUN ALL prints every experiment and a 6/6 summary",
           "status": "PASS"
         },
         {
@@ -1682,6 +1678,10 @@
           "status": "PASS"
         },
         {
+          "name": "tap on a bubble opens the actions sheet",
+          "status": "PASS"
+        },
+        {
           "name": "read receipts are not sent when the reader disabled them",
           "status": "PASS"
         },
@@ -1690,15 +1690,11 @@
           "status": "PASS"
         },
         {
-          "name": "long-press on a bubble opens the actions sheet",
-          "status": "PASS"
-        },
-        {
           "name": "an unknown username is reported clearly",
           "status": "PASS"
         },
         {
-          "name": "strip_pq: the sender refuses a bundle with the ML-KEM key removed",
+          "name": "long-press on a bubble opens the actions sheet",
           "status": "PASS"
         },
         {
@@ -1706,7 +1702,11 @@
           "status": "PASS"
         },
         {
-          "name": "right-click on a bubble opens the actions sheet",
+          "name": "strip_pq: the sender refuses a bundle with the ML-KEM key removed",
+          "status": "PASS"
+        },
+        {
+          "name": "identity, sessions, prekeys and history survive restarts on both sides",
           "status": "PASS"
         },
         {
@@ -1714,7 +1714,7 @@
           "status": "PASS"
         },
         {
-          "name": "identity, sessions, prekeys and history survive restarts on both sides",
+          "name": "right-click on a bubble opens the actions sheet",
           "status": "PASS"
         },
         {
@@ -1742,11 +1742,11 @@
           "status": "PASS"
         },
         {
-          "name": "reply from the sheet sends a quoted message",
+          "name": "a tampered first message does not plant a conversation",
           "status": "PASS"
         },
         {
-          "name": "a tampered first message does not plant a conversation",
+          "name": "reply from the sheet sends a quoted message",
           "status": "PASS"
         },
         {
@@ -1754,15 +1754,7 @@
           "status": "PASS"
         },
         {
-          "name": "delete for everyone asks first, then reaches the other side",
-          "status": "PASS"
-        },
-        {
           "name": "replies, reactions and forwarding round-trip",
-          "status": "PASS"
-        },
-        {
-          "name": "a received voice note shows as a voice player, not a file",
           "status": "PASS"
         },
         {
@@ -1770,11 +1762,15 @@
           "status": "PASS"
         },
         {
+          "name": "delete for everyone asks first, then reaches the other side",
+          "status": "PASS"
+        },
+        {
           "name": "a payload delivered twice (fresh envelopes, same id) is shown once",
           "status": "PASS"
         },
         {
-          "name": "recording without a microphone fails safe and returns to the text box",
+          "name": "a received voice note shows as a voice player, not a file",
           "status": "PASS"
         },
         {
@@ -1782,15 +1778,19 @@
           "status": "PASS"
         },
         {
-          "name": "Crypto X-Ray shows what the relay stored under each message",
-          "status": "PASS"
-        },
-        {
           "name": "disappearing messages are removed on both sides after the timer",
           "status": "PASS"
         },
         {
+          "name": "recording without a microphone fails safe and returns to the text box",
+          "status": "PASS"
+        },
+        {
           "name": "search finds messages across conversations",
+          "status": "PASS"
+        },
+        {
+          "name": "Crypto X-Ray shows what the relay stored under each message",
           "status": "PASS"
         },
         {

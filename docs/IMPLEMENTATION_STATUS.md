@@ -257,6 +257,19 @@ Platform permissions were added: Android `CAMERA` and `RECORD_AUDIO`; iOS camera
   the address plus that warning. Browsers should still use `--lan` (HTTPS proxy, relay stays loopback).
 - **Not verified:** no APK has been built or installed from here — no SDK. The workflow is unrun.
 
+## Relay in Docker Desktop (2026-10-24)
+
+- **`docker/docker-compose.local.yml`** runs the relay alone on `127.0.0.1:8443` with the deployment's
+  hardening, for laptops. The existing `docker-compose.yml` still needs a domain for Caddy/TLS.
+- **`run_demo.py --external-relay`** serves the web client against a relay someone else started, instead
+  of spawning one. Flags that belong to the relay (`--fresh`, `--attacks`, `--relay-lan`) are ignored
+  with a notice rather than silently doing nothing.
+- **Verified on this machine:** image built (its 51 relay tests ran in the build), container reports
+  healthy, read-only rootfs, `cap_drop: ALL`, `no-new-privileges`, uid 10001, 512 MB cap; web client
+  served on both ports against it; CORS allows the demo origins and refuses others; the upload
+  preflight permits `X-Helo-Recipients`; `DEMO_ATTACKS=1` passes through (the demo route answers 401,
+  not 404).
+
 ## Not done / honest gaps
 
 - Android and iOS builds have never been compiled; there is no Android SDK or macOS here.

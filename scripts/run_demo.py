@@ -6,6 +6,7 @@
     python scripts/run_demo.py --fresh    # start from an empty relay database
     python scripts/run_demo.py --lan      # HTTPS on this Wi-Fi, so a phone can join
     python scripts/run_demo.py --attacks  # enable the in-app attack simulator
+    python scripts/run_demo.py --external-relay   # use a relay already running (e.g. Docker)
 
 The web client is served on TWO ports (default 5000 and 5001). Each port is a
 separate browser origin, so each gets its own key storage: open one tab per
@@ -344,6 +345,9 @@ def main() -> int:
     parser.add_argument("--fresh", action="store_true", help="delete the demo relay database first")
     parser.add_argument("--attacks", action="store_true",
                         help="DEMO ONLY: let the app tell this relay to misbehave (attack simulator)")
+    parser.add_argument("--external-relay", action="store_true",
+                        help="do not start a relay: one is already listening on --relay-port "
+                             "(e.g. the container from docker/docker-compose.local.yml)")
     parser.add_argument("--relay-lan", action="store_true",
                         help="expose the relay itself on the network (plain HTTP) so a packaged "
                              "phone app can reach it; browsers should use --lan instead")
@@ -364,12 +368,13 @@ def main() -> int:
               f"    cd mobile && flutter clean && flutter pub get && flutter build web --release{RESET}\n",
               flush=True)
     node = shutil.which("node")
-    if not node:
+    if not node and not args.external_relay:
         sys.exit("node not found on PATH (Node 22.5+ is required for node:sqlite).")
 
     ports = [int(p) for p in args.ports.split(",") if p.strip()]
     bind = "0.0.0.0" if args.lan else "127.0.0.1"
-    if not port_free("0.0.0.0" if args.relay_lan else "127.0.0.1", args.relay_port):
+    if not args.external_relay and not port_free(
+            "0.0.0.0" if args.relay_lan else "127.0.0.1", args.relay_port):
         sys.exit(f"port {args.relay_port} is already in use (another demo still running?)")
     for port in ports:
         if not port_free(bind, port):
@@ -386,26 +391,40 @@ def main() -> int:
 
     DATA.mkdir(parents=True, exist_ok=True)
     db = DATA / "demo.db"
-    if args.fresh:
-        for suffix in ("", "-wal", "-shm"):
-            Path(f"{db}{suffix}").unlink(missing_ok=True)
     log_path = DATA / "demo-relay.log"
-    log_file = open(log_path, "a", encoding="utf-8")  # noqa: SIM115 - lives for the process
+    relay: subprocess.Popen | None = None
+    log_file = None
 
-    relay = subprocess.Popen(
-        [node, str(RELAY)],
-        # The relay always listens on loopback only; --lan reaches it through
-        # the HTTPS proxy below.
-        env={**os.environ, "PORT": str(args.relay_port),
-             "HOST": "0.0.0.0" if args.relay_lan else "127.0.0.1",
-             "DB_PATH": str(db), "CORS_ORIGINS": ",".join(origins),
-             "TRUST_PROXY_LOOPBACK": "1" if args.lan else "0",
-             "DEMO_ATTACKS": "1" if args.attacks else "0"},
-        stdout=log_file, stderr=subprocess.STDOUT,
-    )
-    if not wait_for_relay(args.relay_port):
-        relay.terminate()
-        sys.exit(f"relay failed to start; see {log_path}")
+    if args.external_relay:
+        # Someone else owns the relay (the Docker container, or another
+        # terminal). Its database, CORS allowlist and demo flags are its own:
+        # --fresh and --attacks are not ours to apply.
+        for flag in ("fresh", "attacks", "relay_lan"):
+            if getattr(args, flag):
+                print(f"{YELLOW}--{flag.replace('_', '-')} is ignored with --external-relay: that "
+                      f"relay is configured where it was started.{RESET}")
+        if not wait_for_relay(args.relay_port):
+            sys.exit(f"no relay answering on 127.0.0.1:{args.relay_port}. Start one, e.g.\n"
+                     f"  docker compose -f docker/docker-compose.local.yml up -d")
+    else:
+        if args.fresh:
+            for suffix in ("", "-wal", "-shm"):
+                Path(f"{db}{suffix}").unlink(missing_ok=True)
+        log_file = open(log_path, "a", encoding="utf-8")  # noqa: SIM115 - lives for the process
+        relay = subprocess.Popen(
+            [node, str(RELAY)],
+            # The relay listens on loopback unless --relay-lan; --lan reaches
+            # it through the HTTPS proxy below.
+            env={**os.environ, "PORT": str(args.relay_port),
+                 "HOST": "0.0.0.0" if args.relay_lan else "127.0.0.1",
+                 "DB_PATH": str(db), "CORS_ORIGINS": ",".join(origins),
+                 "TRUST_PROXY_LOOPBACK": "1" if args.lan else "0",
+                 "DEMO_ATTACKS": "1" if args.attacks else "0"},
+            stdout=log_file, stderr=subprocess.STDOUT,
+        )
+        if not wait_for_relay(args.relay_port):
+            relay.terminate()
+            sys.exit(f"relay failed to start; see {log_path}")
 
     tls: ssl.SSLContext | None = None
     if args.lan:
@@ -428,7 +447,10 @@ def main() -> int:
         servers.append(server)
 
     print(f"\n{BOLD}Helo demo running{RESET}")
-    print(f"  relay   http://127.0.0.1:{args.relay_port}  {DIM}(log: {log_path}){RESET}")
+    if args.external_relay:
+        print(f"  relay   http://127.0.0.1:{args.relay_port}  {DIM}(external: started elsewhere){RESET}")
+    else:
+        print(f"  relay   http://127.0.0.1:{args.relay_port}  {DIM}(log: {log_path}){RESET}")
     scheme = "https" if args.lan else "http"
     for i, port in enumerate(ports):
         name = f"User {i + 1}"
@@ -464,18 +486,20 @@ def main() -> int:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
     try:
-        while not stop.is_set() and relay.poll() is None:
+        while not stop.is_set() and (relay is None or relay.poll() is None):
             stop.wait(0.5)
     finally:
         for server in servers:
             server.shutdown()
-        relay.terminate()
-        try:
-            relay.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            relay.kill()
-        log_file.close()
-    if relay.returncode not in (None, 0) and not stop.is_set():
+        if relay is not None:
+            relay.terminate()
+            try:
+                relay.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                relay.kill()
+        if log_file is not None:
+            log_file.close()
+    if relay is not None and relay.returncode not in (None, 0) and not stop.is_set():
         print(f"relay exited unexpectedly; see {log_path}", file=sys.stderr)
         return 1
     return 0

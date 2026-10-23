@@ -301,6 +301,39 @@ rejected before any private key is touched.
 
 ---
 
+## 5b. The relay in Docker Desktop (local)
+
+`docker/docker-compose.yml` is the real deployment: Caddy terminates TLS for a domain and the relay
+is not reachable from outside. That needs a domain, so on a laptop use the local file instead, which
+runs the relay **alone** with the same hardening and publishes it on `127.0.0.1:8443`:
+
+```bash
+docker compose -f docker/docker-compose.local.yml up -d --build
+```
+
+The build runs the relay's 51 tests inside the image and fails if the relay ever gains an npm
+dependency. Then serve the web client against that container instead of starting a second relay:
+
+```bash
+python scripts/run_demo.py --external-relay
+```
+
+Open http://localhost:5000 and http://localhost:5001 as usual. Useful commands:
+
+```bash
+docker compose -f docker/docker-compose.local.yml logs -f
+```
+
+```bash
+docker compose -f docker/docker-compose.local.yml down
+```
+
+- `--fresh`, `--attacks` and `--relay-lan` belong to whoever starts the relay, so they are ignored
+  (with a notice) when `--external-relay` is used. For the attack simulator, start the container with
+  `DEMO_ATTACKS=1` in the environment; to wipe its data, `down -v`.
+- Verified here: container healthy, read-only root filesystem, all Linux capabilities dropped,
+  `no-new-privileges`, running as non-root uid 10001, CORS correct for both demo origins.
+
 ## 6. Deployment (Docker)
 
 **Requires:** Docker with Compose v2, and a domain pointing at the host.

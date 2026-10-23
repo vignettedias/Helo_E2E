@@ -1,0 +1,61 @@
+# Helo relay on Docker Desktop, for local demos and development.
+#
+# docker-compose.yml is the deployment: Caddy terminates TLS for a real domain
+# and the relay is not reachable from outside. That needs a domain and public
+# DNS, so it is not what you want on a laptop.
+#
+# This file runs the relay ALONE, with the same hardening, and publishes it on
+# 127.0.0.1:8443 so the web client (scripts/run_demo.py --external-relay) or a
+# phone app on this machine's network can reach it.
+#
+#   docker compose -f docker/docker-compose.local.yml up -d --build
+#   docker compose -f docker/docker-compose.local.yml logs -f
+#   docker compose -f docker/docker-compose.local.yml down
+#
+# TLS: there is none here. The relay speaks plain HTTP by design and expects a
+# TLS terminator in front of it (see docker-compose.yml). Keep this bound to
+# loopback unless you accept that metadata and bearer tokens are readable on
+# your network.
+
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: helo-relay:local
+    container_name: helo-relay
+    restart: unless-stopped
+    environment:
+      PORT: 8443
+      HOST: 0.0.0.0
+      DB_PATH: /data/helo.db
+      # Browser origins allowed to call the relay. The two demo ports served
+      # by scripts/run_demo.py; override with CORS_ORIGINS in your shell.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5000,http://localhost:5001}
+      # DEMO ONLY: lets the app tell this relay to corrupt, replay, strip or
+      # swap what it serves (src/routes/demo.js). Off unless you ask for it:
+      #   DEMO_ATTACKS=1 docker compose -f docker/docker-compose.local.yml up -d
+      DEMO_ATTACKS: ${DEMO_ATTACKS:-0}
+    ports:
+      # Loopback only. Change to "8443:8443" to let other devices reach it,
+      # and read the warning above first.
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - relay-data:/data
+    # Same hardening as the deployment: nothing writable outside /data, no new
+    # privileges, every Linux capability dropped.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+volumes:
+  relay-data:
